@@ -1,0 +1,79 @@
+# Copy this to config.yaml and fill in your values
+
+kasa:
+  # Leave empty to auto-discover on the network.
+  # You can also pin specific devices:
+  devices:
+    # - alias: "Desk Lamp"
+    #   host: "192.168.1.50"
+    # - alias: "3D Printer"
+    #   host: "192.168.1.51"
+
+tuya:
+  # AiDot bulbs are Tuya-based.
+  # Run: python3 -m tinytuya scan   to find your device IDs and IPs.
+  # Get local_key from the Tuya IoT Platform (see README).
+  devices:
+    # - id: "xxxxxxxxxxxxxxxxxxxxxxxx"
+    #   ip: "192.168.1.60"
+    #   key: "xxxxxxxxxxxxxxxx"
+    #   version: "3.3"
+    #   name: "Bedroom Bulb"
+    # - id: "yyyyyyyyyyyyyyyyyyyyyyyy"
+    #   ip: "192.168.1.61"
+    #   key: "yyyyyyyyyyyyyyyy"
+    #   version: "3.3"
+    #   name: "Living Room Bulb"
+
+ecoflow:
+  # Local MQTT mode: run Mosquitto locally and redirect the Wave 2 to it.
+  # See README for full setup. The SN is on the sticker on your unit.
+  mode: "mqtt_local"          # "mqtt_local" or "cloud"
+  serial_number: "EFDELTA..."  # Your Wave 2 serial number
+  mqtt_host: "127.0.0.1"
+  mqtt_port: 1883
+
+  # Only needed if mode: "cloud"
+  # api_key: "your_access_key"
+  # api_secret: "your_secret_key"
+
+arduino_ir:
+  host: "192.168.1.70"   # IP of your ESP32 after it connects to WiFi
+  port: 80
+  # Predefined IR command codes (hex, NEC format by default)
+  # These are starting points — use /api/ir/learn to capture your actual codes
+  devices:
+    projector:
+      name: "ViewSonic Projector"
+      protocol: "NEC"
+      commands:
+        power:       "0x807F817E"
+        menu:        "0x807FD12E"
+        up:          "0x807F8D72"
+        down:        "0x807F8D73"
+        left:        "0x807F8D74"
+        right:       "0x807F8D75"
+        enter:       "0x807F916E"
+        source:      "0x807FC13E"
+        volume_up:   "0x807F49B6"
+        volume_down: "0x807FC936"
+        mute:        "0x807F09F6"
+        keystone_p:  "0x807F55AA"
+        keystone_n:  "0x807FD52A"
+    soundbar:
+      name: "Vizio Soundbar"
+      protocol: "NEC"
+      commands:
+        power:       "0x20DF08F7"
+        volume_up:   "0x20DF40BF"
+        volume_down: "0x20DFC03F"
+        mute:        "0x20DF906F"
+        input:       "0x20DF0AF5"
+        bluetooth:   "0x20DF42BD"
+        optical:     "0x20DFC23D"
+        bass_up:     "0x20DF22DD"
+        bass_down:   "0x20DFA25D"
+
+roku:
+  # Leave host empty to auto-discover via SSDP.
+  # host: "192.168.1.80"

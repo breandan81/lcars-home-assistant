@@ -1,0 +1,10 @@
+.venv-lcars/
+__pycache__/
+*.pyc
+*.pyo
+.env
+config.yaml
+*.egg-info/
+dist/
+build/
+.DS_Store

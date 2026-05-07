@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LCARS Home Control</title>
+<link rel="stylesheet" href="/static/lcars.css">
+</head>
+<body>
+
+<div class="lcars-frame">
+
+  <!-- HEADER -->
+  <header class="lcars-header">
+    <div class="lcars-elbow-tl">
+      <div class="cap"></div>
+      <div class="cut"></div>
+    </div>
+    <div class="lcars-header-title">
+      <div class="system-name">BREANDAN RESIDENCE</div>
+      <div class="system-sub">Home Control System &nbsp;·&nbsp; <span id="stardate" class="stardate"></span></div>
+    </div>
+    <div class="lcars-header-right">
+      <div class="lcars-status-box">
+        <span class="conn-dot dim" id="ws-dot"></span>
+        <span id="ws-label" style="font-size:0.7rem">OFFLINE</span>
+      </div>
+      <div class="hbar blue">NET</div>
+      <div class="hbar orange">SYS</div>
+    </div>
+  </header>
+
+  <!-- BODY -->
+  <div class="lcars-body">
+
+    <!-- SIDEBAR NAV -->
+    <nav class="lcars-sidebar">
+      <button class="nav-btn orange active" data-section="power">⏻ Power</button>
+      <button class="nav-btn blue"          data-section="lighting">◈ Lighting</button>
+      <button class="nav-btn yellow"        data-section="climate">❄ Climate</button>
+      <button class="nav-btn red"           data-section="display">▣ Display</button>
+      <button class="nav-btn purple"        data-section="audio">♪ Audio</button>
+      <button class="nav-btn lt-blue"       data-section="roku">▶ Roku</button>
+      <div class="nav-spacer"></div>
+      <div class="lcars-elbow-bl">
+        <div class="cap"></div>
+        <div class="cut"></div>
+      </div>
+    </nav>
+
+    <!-- CONTENT -->
+    <main class="lcars-content" id="content-area">
+
+      <!-- ═══ POWER (Kasa) ═══════════════════════════════════════════════ -->
+      <div class="section active" id="section-power">
+        <div class="panel">
+          <div class="panel-header orange">
+            <span class="indicator" id="kasa-indicator"></span>
+            Kasa Smart Plugs
+            <span style="margin-left:auto;font-size:0.7rem;font-weight:300" id="kasa-count"></span>
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row" style="margin-bottom:12px">
+              <button class="lbtn blue" onclick="kasaDiscover()">↺ Discover</button>
+              <button class="lbtn dim"  onclick="kasaRefresh()">Refresh Status</button>
+            </div>
+            <div class="device-grid" id="kasa-devices">
+              <div style="color:var(--dim);font-size:0.75rem">Click Discover to find devices…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ LIGHTING (AiDot / Tuya) ════════════════════════════════════ -->
+      <div class="section" id="section-lighting">
+        <div class="panel">
+          <div class="panel-header blue">
+            <span class="indicator" id="tuya-indicator"></span>
+            AiDot Bulbs (Tuya Local)
+            <span style="margin-left:auto;font-size:0.7rem;font-weight:300" id="tuya-count"></span>
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row" style="margin-bottom:12px">
+              <button class="lbtn blue" onclick="tuyaRefresh()">↺ Refresh</button>
+            </div>
+            <div class="device-grid" id="tuya-devices">
+              <div style="color:var(--dim);font-size:0.75rem">Configure devices in config.yaml (tuya section)…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ CLIMATE (EcoFlow Wave 2) ════════════════════════════════════ -->
+      <div class="section" id="section-climate">
+        <div class="panel">
+          <div class="panel-header yellow">
+            <span class="indicator" id="eco-indicator"></span>
+            EcoFlow Wave 2
+            <span style="margin-left:auto;font-size:0.65rem;font-weight:300" id="eco-mode-label"></span>
+          </div>
+          <div class="panel-body">
+            <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+              <!-- Temp display -->
+              <div class="temp-display">
+                <div class="temp-big"><span id="eco-temp">--</span><span class="temp-unit">°C</span></div>
+                <div class="temp-set">SET: <span id="eco-set-temp">--</span>°C</div>
+                <div style="margin-top:10px;display:flex;gap:6px;justify-content:center">
+                  <button class="lbtn orange" onclick="ecoTempAdj(-1)">▼</button>
+                  <button class="lbtn orange" onclick="ecoTempAdj(+1)">▲</button>
+                </div>
+              </div>
+              <!-- Controls -->
+              <div style="flex:1;min-width:200px">
+                <div class="ctrl-row">
+                  <span class="ctrl-label">Power</span>
+                  <button class="lbtn green"  onclick="ecoPower(true)">ON</button>
+                  <button class="lbtn red"    onclick="ecoPower(false)">OFF</button>
+                </div>
+                <div class="ctrl-row">
+                  <span class="ctrl-label">Mode</span>
+                  <button class="lbtn blue"    onclick="ecoMode('cool')" id="mode-cool">Cool</button>
+                  <button class="lbtn orange"  onclick="ecoMode('heat')" id="mode-heat">Heat</button>
+                  <button class="lbtn lt-blue" onclick="ecoMode('fan')"  id="mode-fan">Fan</button>
+                </div>
+                <div class="ctrl-row">
+                  <span class="ctrl-label">Fan</span>
+                  <button class="lbtn dim"   onclick="ecoFan('low')">Low</button>
+                  <button class="lbtn dim"   onclick="ecoFan('medium')">Mid</button>
+                  <button class="lbtn dim"   onclick="ecoFan('high')">High</button>
+                </div>
+                <div class="ctrl-row" style="margin-top:10px">
+                  <button class="lbtn dim" onclick="ecoRefresh()" style="font-size:0.7rem">↺ Refresh Status</button>
+                </div>
+                <!-- Status table -->
+                <table class="data-table" id="eco-table" style="margin-top:12px"></table>
+              </div>
+            </div>
+            <!-- MQTT setup note -->
+            <div id="eco-setup-note" style="margin-top:12px;font-size:0.7rem;color:var(--dim);display:none">
+              ⚠ MQTT not connected — see README for EcoFlow local setup.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ DISPLAY (ViewSonic Projector via IR) ════════════════════════ -->
+      <div class="section" id="section-display">
+        <div class="panel">
+          <div class="panel-header red">
+            <span class="indicator" id="proj-indicator"></span>
+            ViewSonic Projector
+            <span style="margin-left:auto;font-size:0.7rem;font-weight:300" id="arduino-status"></span>
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row">
+              <button class="lbtn green power-btn" onclick="irSend('projector','power')" title="Power">⏻</button>
+              <button class="lbtn dim"   onclick="irSend('projector','source')">Source</button>
+              <button class="lbtn dim"   onclick="irSend('projector','menu')">Menu</button>
+              <button class="lbtn dim"   onclick="irSend('projector','mute')">Mute</button>
+            </div>
+            <div class="dpad" style="margin:12px 0">
+              <button class="lbtn blue dpad-up"    onclick="irSend('projector','up')">▲</button>
+              <button class="lbtn blue dpad-left"  onclick="irSend('projector','left')">◀</button>
+              <button class="lbtn orange dpad-center" onclick="irSend('projector','enter')">OK</button>
+              <button class="lbtn blue dpad-right" onclick="irSend('projector','right')">▶</button>
+              <button class="lbtn blue dpad-down"  onclick="irSend('projector','down')">▼</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Volume</span>
+              <button class="lbtn orange" onclick="irSend('projector','volume_up')">＋</button>
+              <button class="lbtn orange" onclick="irSend('projector','volume_down')">－</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Keystone</span>
+              <button class="lbtn dim" onclick="irSend('projector','keystone_p')">＋</button>
+              <button class="lbtn dim" onclick="irSend('projector','keystone_n')">－</button>
+            </div>
+          </div>
+        </div>
+        <!-- IR Learn -->
+        <div class="panel">
+          <div class="panel-header dim" style="background:#1a1a2a;color:var(--dim)">IR Code Learner</div>
+          <div class="panel-body learn-area">
+            <div style="font-size:0.7rem;color:var(--dim)">Point your remote at the Arduino and click Capture. Copy the learned code into config.yaml.</div>
+            <div class="learn-row">
+              <input type="text" id="learn-device"  placeholder="device (e.g. projector)" style="width:150px">
+              <input type="text" id="learn-command" placeholder="command (e.g. power)">
+              <button class="lbtn yellow" onclick="irLearn()">◎ Capture IR</button>
+            </div>
+            <div id="learn-result" style="font-size:0.75rem;color:var(--green);margin-top:4px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ AUDIO (Vizio Soundbar via IR) ══════════════════════════════ -->
+      <div class="section" id="section-audio">
+        <div class="panel">
+          <div class="panel-header purple">
+            <span class="indicator" id="sb-indicator"></span>
+            Vizio Soundbar
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row">
+              <button class="lbtn green power-btn" onclick="irSend('soundbar','power')" title="Power">⏻</button>
+              <button class="lbtn dim"   onclick="irSend('soundbar','mute')">Mute</button>
+              <button class="lbtn dim"   onclick="irSend('soundbar','input')">Input</button>
+            </div>
+            <div class="ctrl-row" style="margin-top:8px">
+              <span class="ctrl-label">Input</span>
+              <button class="lbtn blue"    onclick="irSend('soundbar','bluetooth')">BT</button>
+              <button class="lbtn lt-blue" onclick="irSend('soundbar','optical')">Optical</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Volume</span>
+              <button class="lbtn orange" onclick="irSend('soundbar','volume_up')"  >＋</button>
+              <button class="lbtn orange" onclick="irSend('soundbar','volume_down')">－</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Bass</span>
+              <button class="lbtn dim" onclick="irSend('soundbar','bass_up')"  >＋</button>
+              <button class="lbtn dim" onclick="irSend('soundbar','bass_down')">－</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ ROKU ════════════════════════════════════════════════════════ -->
+      <div class="section" id="section-roku">
+        <div class="panel">
+          <div class="panel-header lt-blue">
+            <span class="indicator" id="roku-indicator"></span>
+            Roku
+            <span style="margin-left:auto;font-size:0.7rem;font-weight:300" id="roku-info"></span>
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row" style="margin-bottom:10px">
+              <button class="lbtn lt-blue" onclick="rokuDiscover()">↺ Discover</button>
+            </div>
+            <!-- Transport -->
+            <div class="ctrl-row">
+              <button class="lbtn green  power-btn" onclick="rokuKey('PowerOn')"  title="Power On">⏻</button>
+              <button class="lbtn red    power-btn" onclick="rokuKey('PowerOff')" title="Power Off" style="font-size:0.7rem">OFF</button>
+              <button class="lbtn orange" onclick="rokuKey('Home')">⌂</button>
+              <button class="lbtn dim"    onclick="rokuKey('Back')">← Back</button>
+              <button class="lbtn dim"    onclick="rokuKey('Info')">* Info</button>
+            </div>
+            <!-- D-Pad -->
+            <div class="dpad" style="margin:10px 0">
+              <button class="lbtn blue dpad-up"    onclick="rokuKey('Up')">▲</button>
+              <button class="lbtn blue dpad-left"  onclick="rokuKey('Left')">◀</button>
+              <button class="lbtn orange dpad-center" onclick="rokuKey('Select')">OK</button>
+              <button class="lbtn blue dpad-right" onclick="rokuKey('Right')">▶</button>
+              <button class="lbtn blue dpad-down"  onclick="rokuKey('Down')">▼</button>
+            </div>
+            <!-- Playback -->
+            <div class="ctrl-row">
+              <button class="lbtn dim" onclick="rokuKey('Rev')">⏪</button>
+              <button class="lbtn orange" onclick="rokuKey('Play')">⏯</button>
+              <button class="lbtn dim" onclick="rokuKey('Fwd')">⏩</button>
+            </div>
+            <!-- Volume -->
+            <div class="ctrl-row" style="margin-top:4px">
+              <span class="ctrl-label">Volume</span>
+              <button class="lbtn orange" onclick="rokuKey('VolumeUp')">＋</button>
+              <button class="lbtn orange" onclick="rokuKey('VolumeDown')">－</button>
+              <button class="lbtn dim"    onclick="rokuKey('VolumeMute')">Mute</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Apps -->
+        <div class="panel">
+          <div class="panel-header lt-blue">Installed Apps</div>
+          <div class="panel-body">
+            <div class="apps-grid" id="roku-apps">
+              <div style="color:var(--dim);font-size:0.75rem">Discover Roku first…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main><!-- end content -->
+  </div><!-- end body -->
+
+  <!-- FOOTER -->
+  <footer class="lcars-footer">
+    <div class="lcars-elbow-bl-footer"></div>
+    <div class="lcars-footer-status">
+      <span id="status-msg" style="color:var(--blue)">SYSTEM INITIALIZING</span>
+      <span id="last-action" style="color:var(--dim);font-size:0.65rem"></span>
+    </div>
+    <div class="lcars-footer-right">
+      <div class="fbar blue"></div>
+      <div class="fbar yellow"></div>
+    </div>
+  </footer>
+
+</div><!-- end frame -->
+
+<div id="toast"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
