@@ -341,30 +341,55 @@ function renderEcoflow() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// ARDUINO IR
+// ARDUINO IR + RF
 // ════════════════════════════════════════════════════════════════════════════
 
+function _arduinoOnline() {
+  document.getElementById('arduino-status').textContent = 'Arduino ONLINE';
+}
+
+// IR send (also used for RF devices — backend routes by device type)
 async function irSend(device, command) {
   setAction(`IR → ${device}: ${command}`);
   const r = await api('POST', `/api/ir/${device}/${command}`);
   if (r.error) {
-    toast(`IR error: ${r.error}`, 'var(--red)');
+    toast(`${r.error}`, 'var(--red)');
     setIndicator('proj-indicator', 'err');
     setIndicator('sb-indicator', 'err');
   } else {
     toast(`Sent: ${command}`, 'var(--green)');
     setIndicator(device === 'projector' ? 'proj-indicator' : 'sb-indicator', 'on');
-    // Show arduino online
-    document.getElementById('arduino-status').textContent = 'Arduino ONLINE';
+    _arduinoOnline();
   }
 }
 
+// Fan commands go through the same /api/ir/ endpoint — backend routes to RF
+async function fanCmd(command) {
+  setAction(`Fan: ${command}`);
+  const r = await api('POST', `/api/ir/ceiling_fan/${command}`);
+  if (r.error) {
+    toast(`Fan error: ${r.error}`, 'var(--red)');
+    setIndicator('fan-indicator', 'err');
+  } else {
+    toast(`Fan: ${command}`, 'var(--green)');
+    setIndicator('fan-indicator', 'on');
+    _arduinoOnline();
+    // Highlight active speed button
+    ['fan-low','fan-med','fan-high'].forEach(id =>
+      document.getElementById(id)?.classList.remove('active')
+    );
+    const speedMap = { fan_low: 'fan-low', fan_medium: 'fan-med', fan_high: 'fan-high' };
+    if (speedMap[command]) document.getElementById(speedMap[command])?.classList.add('active');
+  }
+}
+
+// IR learner
 async function irLearn() {
   const device  = document.getElementById('learn-device').value.trim();
   const command = document.getElementById('learn-command').value.trim();
   if (!device || !command) { toast('Enter device and command name', 'var(--yellow)'); return; }
 
-  toast('Point remote at Arduino and hold button…', 'var(--yellow)');
+  toast('Point IR remote at Arduino and hold button…', 'var(--yellow)');
   const r = await api('GET', '/api/ir/learn', { device, command });
   const res = document.getElementById('learn-result');
   if (r.error) {
@@ -372,7 +397,26 @@ async function irLearn() {
     res.textContent = '⚠ ' + r.error;
   } else if (r.code) {
     res.style.color = 'var(--green)';
-    res.textContent = `✓ ${device}/${command} = ${r.code}   (add to config.yaml)`;
+    res.textContent = `✓ ${device}/${command} = ${r.code}  protocol:${r.protocol}  (add to config.yaml)`;
+  }
+}
+
+// RF learner
+async function rfLearn() {
+  const device  = document.getElementById('rf-learn-device').value.trim();
+  const command = document.getElementById('rf-learn-command').value.trim();
+  if (!device || !command) { toast('Enter device and command name', 'var(--yellow)'); return; }
+
+  toast('Hold RF remote near receiver and press button…', 'var(--yellow)');
+  const r = await api('GET', '/api/rf/learn', { device, command });
+  const res = document.getElementById('rf-learn-result');
+  if (r.error) {
+    res.style.color = 'var(--red)';
+    res.textContent = '⚠ ' + r.error;
+  } else if (r.code) {
+    res.style.color = 'var(--green)';
+    res.textContent = `✓ ${device}/${command} = ${r.code}  bits:${r.bits}  protocol:${r.protocol}  (add to config.yaml)`;
+    _arduinoOnline();
   }
 }
 

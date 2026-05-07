@@ -93,6 +93,20 @@ arduino_ir:
         optical:     "0x20DFC23D"
         bass_up:     "0x20DF22DD"
         bass_down:   "0x20DFA25D"
+    ceiling_fan:
+      name: "Ceiling Fan"
+      type: rf          # RF device — uses RFSEND/RFLEARN serial commands
+      protocol: 1       # RCSwitch protocol (1 = standard OOK, covers most 433 MHz remotes)
+      bit_length: 24    # Hunter TX45 uses 24-bit codes
+      # Use the RF Learner in the UI (Display section) to capture these.
+      # Point the TX45 remote at the XY-MK-5V receiver and press each button.
+      commands:
+        fan_off:    "0x000000"   # replace with learned value
+        fan_low:    "0x000000"
+        fan_medium: "0x000000"
+        fan_high:   "0x000000"
+        light:      "0x000000"
+        direction:  "0x000000"
 
 roku:
   # Leave host empty to auto-discover via SSDP.

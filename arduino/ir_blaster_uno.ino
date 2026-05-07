@@ -1,37 +1,53 @@
 /*
- * LCARS IR Blaster — Arduino Uno / clone over USB serial
+ * LCARS IR + RF Blaster — Arduino Uno / clone over USB serial
  *
- * Library (install via Arduino IDE → Manage Libraries):
- *   "IRremote" by shirriff — install version 2.x ONLY (not 3.x/4.x, different API)
+ * Libraries (Arduino IDE → Manage Libraries):
+ *   "IRremote" by shirriff — version 2.x ONLY (not 3.x/4.x, different API)
+ *   "RCSwitch"  by sui77   — any recent version
  *
  * Wiring:
- *   IR LED anode  → 100Ω resistor → Pin 3  (must be a PWM pin)
- *   IR LED cathode → GND
- *   IR Receiver (TSOP38238 / VS1838B) DATA → Pin 11
- *   IR Receiver VCC → 5V,  GND → GND
+ *   IR LED anode    → 100Ω resistor → Pin 3   (Timer 2, must be Pin 3)
+ *   IR LED cathode  → GND
+ *   IR receiver     DATA → Pin 11,  VCC → 5V,  GND → GND
  *
- * Serial protocol — 9600 baud, commands are newline-terminated:
- *   PING\n                       → PONG\n
- *   SEND NEC 807F817E 32\n       → OK\n  or  ERROR msg\n
- *   LEARN\n                      → CODE NEC 807F817E 32\n  or  TIMEOUT\n
+ *   RF transmitter  DATA → Pin 10,  VCC → 5V,  GND → GND   (FS1000A)
+ *   RF receiver     DATA → Pin 2,   VCC → 5V,  GND → GND   (XY-MK-5V)
+ *     Pin 2 = INT0 — required by RCSwitch for reliable reception
  *
- * Note: IRremote v2 uses Timer 2 for both send and receive.
- * The sketch disables the receiver before sending and re-enables it only
- * during LEARN, so they never conflict.
+ * Serial protocol — 9600 baud, newline-terminated:
+ *   PING\n                           → PONG\n
+ *   SEND  <PROTO> <HEXCODE> <BITS>\n → OK\n          (IR send)
+ *   LEARN\n                          → CODE <PROTO> <HEXCODE> <BITS>\n  (IR learn)
+ *   RFSEND <HEXCODE> <BITS> <PROTO>\n → OK\n         (RF send)
+ *   RFLEARN\n                        → RFCODE <HEXCODE> <BITS> <PROTO>\n (RF learn)
+ *   Any of the above → TIMEOUT\n or ERROR msg\n on failure
+ *
+ * Note on timer sharing:
+ *   IRremote v2 uses Timer 2 for the IR carrier. RCSwitch receive uses INT0.
+ *   They don't share hardware, but we still disable each receiver before
+ *   activating the other to keep interrupt load clean.
  */
 
 #include <IRremote.h>
+#include <RCSwitch.h>
 
-#define RECV_PIN 11   // Any digital pin. Keep away from Pin 3.
+#define IR_RECV_PIN  11   // Any digital pin except 3
+#define RF_SEND_PIN  10   // Any digital pin
+#define RF_RECV_PIN   2   // Must be an interrupt pin: 2 (INT0) or 3 (INT1)
+                          // Pin 3 is taken by IRremote send, so use Pin 2.
 
-IRsend   irsend;       // Hardwired to Pin 3 on Uno in IRremote v2
-IRrecv   irrecv(RECV_PIN);
-decode_results results;
+IRsend   irsend;                 // Send pin hardwired to Pin 3 in IRremote v2
+IRrecv   irrecv(IR_RECV_PIN);
+decode_results irResults;
+
+RCSwitch rf;
 
 // ─── Setup ──────────────────────────────────────────────────────────────────
 void setup() {
   Serial.begin(9600);
-  // Leave irrecv disabled — enabling it blocks irsend's timer.
+  rf.enableTransmit(RF_SEND_PIN);
+  rf.setRepeatTransmit(5);  // send each code 5× for reliability
+  // Receivers are enabled only on demand.
 }
 
 // ─── Loop ───────────────────────────────────────────────────────────────────
@@ -45,96 +61,69 @@ void loop() {
 
 // ─── Dispatch ────────────────────────────────────────────────────────────────
 void handleCommand(const String& cmd) {
-  if (cmd == "PING") {
-    Serial.println("PONG");
-  } else if (cmd == "LEARN") {
-    doLearn();
-  } else if (cmd.startsWith("SEND ")) {
-    doSend(cmd);
-  } else {
-    Serial.println("ERROR unknown command");
-  }
+  if      (cmd == "PING")              Serial.println("PONG");
+  else if (cmd.startsWith("SEND "))   doIRSend(cmd);
+  else if (cmd == "LEARN")            doIRLearn();
+  else if (cmd.startsWith("RFSEND ")) doRFSend(cmd);
+  else if (cmd == "RFLEARN")          doRFLearn();
+  else                                 Serial.println("ERROR unknown command");
 }
 
-// ─── SEND ────────────────────────────────────────────────────────────────────
-// Input:  SEND <PROTOCOL> <HEXCODE> <BITS>
-// e.g.:   SEND NEC 807F817E 32
-void doSend(const String& cmd) {
-  // Tokenise
+// ─── IR SEND ─────────────────────────────────────────────────────────────────
+// SEND <PROTOCOL> <HEXCODE> <BITS>
+// e.g. SEND NEC 807F817E 32
+void doIRSend(const String& cmd) {
   int p1 = 5;
   int p2 = cmd.indexOf(' ', p1);
   if (p2 < 0) { Serial.println("ERROR malformed"); return; }
-
   int p3 = cmd.indexOf(' ', p2 + 1);
   if (p3 < 0) { Serial.println("ERROR malformed"); return; }
 
   String protocol = cmd.substring(p1, p2);
   protocol.toUpperCase();
-
-  String hexStr  = cmd.substring(p2 + 1, p3);
-  String bitsStr = cmd.substring(p3 + 1);
-
-  unsigned long code = strtoul(hexStr.c_str(), NULL, 16);
-  int bits = bitsStr.toInt();
+  unsigned long code = strtoul(cmd.substring(p2 + 1, p3).c_str(), NULL, 16);
+  int bits = cmd.substring(p3 + 1).toInt();
   if (bits == 0) bits = 32;
 
-  irrecv.disableIRIn(); // Must be off while sending
+  rf.disableReceive();   // keep interrupt load clean
+  irrecv.disableIRIn();
 
-  if (protocol == "NEC") {
-    irsend.sendNEC(code, bits);
-  } else if (protocol == "SAMSUNG") {
-    irsend.sendSAMSUNG(code, bits);
-  } else if (protocol == "SONY") {
-    // Sony spec requires ≥3 transmissions
-    for (int i = 0; i < 3; i++) {
-      irsend.sendSony(code, bits);
-      delay(40);
-    }
-  } else if (protocol == "RC5") {
-    irsend.sendRC5(code, bits);
-  } else if (protocol == "RC6") {
-    irsend.sendRC6(code, bits);
-  } else if (protocol == "LG") {
-    irsend.sendLG(code, bits);
-  } else if (protocol == "PANASONIC") {
-    irsend.sendPanasonic(code >> 16, code & 0xFFFF);
-  } else if (protocol == "SHARP") {
-    irsend.sendSharp(code >> 8, code & 0xFF);
-  } else {
-    // Unknown — attempt NEC as a fallback
-    irsend.sendNEC(code, bits);
+  if      (protocol == "NEC")      irsend.sendNEC(code, bits);
+  else if (protocol == "SAMSUNG")  irsend.sendSAMSUNG(code, bits);
+  else if (protocol == "SONY") {
+    for (int i = 0; i < 3; i++) { irsend.sendSony(code, bits); delay(40); }
   }
+  else if (protocol == "RC5")      irsend.sendRC5(code, bits);
+  else if (protocol == "RC6")      irsend.sendRC6(code, bits);
+  else if (protocol == "LG")       irsend.sendLG(code, bits);
+  else if (protocol == "PANASONIC") irsend.sendPanasonic(code >> 16, code & 0xFFFF);
+  else if (protocol == "SHARP")    irsend.sendSharp(code >> 8, code & 0xFF);
+  else                             irsend.sendNEC(code, bits); // fallback
 
   Serial.println("OK");
 }
 
-// ─── LEARN ──────────────────────────────────────────────────────────────────
-void doLearn() {
+// ─── IR LEARN ────────────────────────────────────────────────────────────────
+void doIRLearn() {
+  rf.disableReceive();
   irrecv.enableIRIn();
   unsigned long deadline = millis() + 10000UL;
 
   while (millis() < deadline) {
-    if (irrecv.decode(&results)) {
-      unsigned long value = results.value;
-
+    if (irrecv.decode(&irResults)) {
+      unsigned long value = irResults.value;
       irrecv.resume();
-
-      // Skip repeat codes — wait for the real code
-      if (value == 0xFFFFFFFFUL || value == 0) {
-        continue;
-      }
-
+      if (value == 0xFFFFFFFFUL || value == 0) continue; // skip repeats
       irrecv.disableIRIn();
 
       char hexbuf[9];
       sprintf(hexbuf, "%08lX", value);
-
       Serial.print("CODE ");
-      Serial.print(protocolName(results.decode_type));
+      Serial.print(irProtocolName(irResults.decode_type));
       Serial.print(" ");
       Serial.print(hexbuf);
       Serial.print(" ");
-      Serial.println(results.bits);
+      Serial.println(irResults.bits);
       return;
     }
     delay(10);
@@ -144,8 +133,69 @@ void doLearn() {
   Serial.println("TIMEOUT");
 }
 
-// ─── Protocol name lookup ────────────────────────────────────────────────────
-const char* protocolName(int type) {
+// ─── RF SEND ─────────────────────────────────────────────────────────────────
+// RFSEND <HEXCODE> <BITS> <PROTO>
+// e.g.   RFSEND 1A2B3C 24 1
+void doRFSend(const String& cmd) {
+  int p1 = 7;
+  int p2 = cmd.indexOf(' ', p1);
+  if (p2 < 0) { Serial.println("ERROR malformed"); return; }
+  int p3 = cmd.indexOf(' ', p2 + 1);
+  if (p3 < 0) { Serial.println("ERROR malformed"); return; }
+
+  unsigned long code = strtoul(cmd.substring(p1, p2).c_str(), NULL, 16);
+  int bits     = cmd.substring(p2 + 1, p3).toInt();
+  int protocol = cmd.substring(p3 + 1).toInt();
+  if (bits == 0)     bits     = 24;
+  if (protocol == 0) protocol = 1;
+
+  rf.disableReceive();
+  irrecv.disableIRIn();
+
+  rf.setProtocol(protocol);
+  rf.send(code, bits);
+
+  Serial.println("OK");
+}
+
+// ─── RF LEARN ────────────────────────────────────────────────────────────────
+void doRFLearn() {
+  irrecv.disableIRIn();
+  rf.enableReceive(RF_RECV_PIN - 2);  // RCSwitch takes interrupt number: pin2=0, pin3=1
+  unsigned long deadline = millis() + 10000UL;
+
+  while (millis() < deadline) {
+    if (rf.available()) {
+      unsigned long value    = rf.getReceivedValue();
+      int           bits     = rf.getReceivedBitlength();
+      int           protocol = rf.getReceivedProtocol();
+      rf.resetAvailable();
+      rf.disableReceive();
+
+      if (value == 0) {
+        Serial.println("TIMEOUT"); // unrecognised signal
+        return;
+      }
+
+      char hexbuf[9];
+      sprintf(hexbuf, "%06lX", value);
+      Serial.print("RFCODE ");
+      Serial.print(hexbuf);
+      Serial.print(" ");
+      Serial.print(bits);
+      Serial.print(" ");
+      Serial.println(protocol);
+      return;
+    }
+    delay(10);
+  }
+
+  rf.disableReceive();
+  Serial.println("TIMEOUT");
+}
+
+// ─── IR protocol name ────────────────────────────────────────────────────────
+const char* irProtocolName(int type) {
   switch (type) {
     case NEC:       return "NEC";
     case SONY:      return "SONY";

@@ -135,7 +135,7 @@ async def climate_fan(speed: str):
     return ecoflow.set_fan_speed(speed)
 
 
-# ── Arduino IR ───────────────────────────────────────────────────────────────
+# ── Arduino IR + RF ──────────────────────────────────────────────────────────
 
 @app.get("/api/ir/devices")
 async def ir_devices():
@@ -147,16 +147,21 @@ async def ir_codes():
 
 @app.post("/api/ir/{device_id}/{command}")
 async def ir_send(device_id: str, command: str):
+    # Routes to IR or RF automatically based on device type in config.
     return await arduino.send_command(device_id, command)
 
 @app.get("/api/ir/learn")
 async def ir_learn(device: str, command: str):
-    return await arduino.learn_command(device, command)
+    return await arduino.learn_ir_command(device, command)
+
+@app.get("/api/rf/learn")
+async def rf_learn(device: str, command: str):
+    return await arduino.learn_rf_command(device, command)
 
 @app.get("/api/ir/ping")
 async def ir_ping():
     ok = await arduino.ping()
-    return {"online": ok, "host": arduino.host}
+    return {"online": ok, "host": arduino.host, "mode": arduino.mode}
 
 
 # ── Roku ─────────────────────────────────────────────────────────────────────

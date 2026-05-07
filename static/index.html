@@ -141,6 +141,37 @@
             </div>
           </div>
         </div>
+
+        <!-- Ceiling Fan (RF) -->
+        <div class="panel">
+          <div class="panel-header green">
+            <span class="indicator" id="fan-indicator"></span>
+            Ceiling Fan (Hunter TX45)
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row">
+              <button class="lbtn green power-btn" onclick="fanCmd('fan_high')" title="Power / High">⏻</button>
+              <button class="lbtn red"   onclick="fanCmd('fan_off')">Off</button>
+            </div>
+            <div class="ctrl-row" style="margin-top:8px">
+              <span class="ctrl-label">Speed</span>
+              <button class="lbtn lt-blue" onclick="fanCmd('fan_low')"    id="fan-low">Low</button>
+              <button class="lbtn blue"    onclick="fanCmd('fan_medium')" id="fan-med">Med</button>
+              <button class="lbtn orange"  onclick="fanCmd('fan_high')"   id="fan-high">High</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Light</span>
+              <button class="lbtn yellow" onclick="fanCmd('light')">Toggle</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Direction</span>
+              <button class="lbtn dim" onclick="fanCmd('direction')">Reverse</button>
+            </div>
+            <div style="margin-top:10px;font-size:0.65rem;color:var(--dim)">
+              Codes not yet learned — use RF Learner in the Display section.
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ═══ DISPLAY (ViewSonic Projector via IR) ════════════════════════ -->
@@ -181,13 +212,26 @@
         <div class="panel">
           <div class="panel-header dim" style="background:#1a1a2a;color:var(--dim)">IR Code Learner</div>
           <div class="panel-body learn-area">
-            <div style="font-size:0.7rem;color:var(--dim)">Point your remote at the Arduino and click Capture. Copy the learned code into config.yaml.</div>
+            <div style="font-size:0.7rem;color:var(--dim)">Point your IR remote at the Arduino and click Capture. Copy the code into config.yaml.</div>
             <div class="learn-row">
               <input type="text" id="learn-device"  placeholder="device (e.g. projector)" style="width:150px">
               <input type="text" id="learn-command" placeholder="command (e.g. power)">
               <button class="lbtn yellow" onclick="irLearn()">◎ Capture IR</button>
             </div>
             <div id="learn-result" style="font-size:0.75rem;color:var(--green);margin-top:4px"></div>
+          </div>
+        </div>
+        <!-- RF Learn -->
+        <div class="panel">
+          <div class="panel-header dim" style="background:#1a1a2a;color:var(--dim)">RF Code Learner (433 MHz)</div>
+          <div class="panel-body learn-area">
+            <div style="font-size:0.7rem;color:var(--dim)">Hold your RF remote near the receiver and click Capture. Copy the code into config.yaml under the ceiling_fan device.</div>
+            <div class="learn-row">
+              <input type="text" id="rf-learn-device"  placeholder="device (e.g. ceiling_fan)" style="width:150px">
+              <input type="text" id="rf-learn-command" placeholder="command (e.g. fan_low)">
+              <button class="lbtn green" onclick="rfLearn()">◎ Capture RF</button>
+            </div>
+            <div id="rf-learn-result" style="font-size:0.75rem;color:var(--green);margin-top:4px"></div>
           </div>
         </div>
       </div>
