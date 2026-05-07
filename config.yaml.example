@@ -38,8 +38,28 @@ ecoflow:
   # api_secret: "your_secret_key"
 
 arduino_ir:
-  host: "192.168.1.70"   # IP of your ESP32 after it connects to WiFi
-  port: 80
+  # ── Choose one mode ──────────────────────────────────────────────────────
+  #
+  # mode: serial   → Arduino Uno (or clone) over USB, sketch: ir_blaster_uno.ino
+  #   serial_port: "/dev/ttyACM0"   # genuine Arduino Uno
+  #   serial_port: "/dev/ttyUSB0"   # clone with CH340 chip (most common)
+  #   baud_rate: 9600
+  #
+  # mode: wifi     → ESP32/ESP8266 over WiFi, sketch: ir_blaster.ino
+  #   host: "192.168.1.70"
+  #   port: 80
+  #
+  # To find your serial port:
+  #   ls /dev/tty{ACM,USB}*          (Linux)
+  #   ls /dev/cu.usbserial-*         (macOS)
+  #   Device Manager → COM ports     (Windows)
+
+  mode: serial
+  serial_port: "/dev/ttyUSB0"
+  baud_rate: 9600
+
+  # ── IR command codes (hex, protocol defined per-device) ──────────────────
+  # These are starting points — use the IR Learner in the UI to capture yours.
   # Predefined IR command codes (hex, NEC format by default)
   # These are starting points — use /api/ir/learn to capture your actual codes
   devices:
