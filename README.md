@@ -4,7 +4,7 @@ A locally-hosted Star Trek LCARS interface for:
 - **TP-Link Kasa** smart plugs (local, no cloud)
 - **AiDot bulbs** via local Tuya protocol (no cloud)
 - **EcoFlow Wave 2** via local MQTT
-- **Arduino IR blaster** (ESP32) → ViewSonic projector + Vizio soundbar
+- **Arduino IR blaster** (Uno over USB serial, or ESP32 over WiFi) → ViewSonic projector + Vizio soundbar
 - **Roku** via official ECP (fully local)
 
 ---
@@ -13,8 +13,8 @@ A locally-hosted Star Trek LCARS interface for:
 
 ```bash
 cd smart-home-lcars
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv-lcars
+source .venv-lcars/bin/activate
 pip install -r requirements.txt
 
 cp config.yaml.example config.yaml
@@ -105,36 +105,84 @@ ecoflow:
 
 > **Note:** While the device is redirected to your local broker, the EcoFlow mobile app will stop working (it can't reach the cloud either). You can restore normal operation by removing the DNS override.
 
-### Arduino IR Blaster (ESP32)
+### Arduino IR Blaster
+
+Two hardware options — pick whichever you have. Both support IR send and the learn-from-remote workflow.
+
+---
+
+#### Option A — Arduino Uno / clone over USB (recommended if you have one)
+
+Sketch: `arduino/ir_blaster_uno.ino`
 
 **Hardware:**
-- Any ESP32 board (e.g., ESP32 DevKit, Wemos D1 Mini32)
-- IR LED (TSAL6100 or similar) + 100Ω resistor between LED+ and GPIO 4
-- IR receiver module (TSOP38238) connected to GPIO 14
+- Arduino Uno or any clone (CH340-based clones work fine)
+- IR LED (any 940 nm LED) + 100Ω resistor → **Pin 3** (must be Pin 3 — hardwired to Timer 2)
+- IR receiver module (TSOP38238 / VS1838B) DATA → **Pin 11**, VCC → 5V, GND → GND
 
-**Arduino Libraries** (install in Arduino IDE → Library Manager):
+**One required library** (Arduino IDE → Manage Libraries):
+- `IRremote` by shirriff — install **version 2.x**, not 3.x/4.x (different API)
+
+**Flash:**
+1. Open `arduino/ir_blaster_uno.ino` in Arduino IDE
+2. Select board: **Arduino Uno**
+3. Flash — no configuration needed in the sketch itself
+
+**Find your serial port:**
+```bash
+ls /dev/tty{ACM,USB}*     # Linux — Uno clones with CH340 usually show as /dev/ttyUSB0
+ls /dev/cu.usbserial-*    # macOS
+# Windows: Device Manager → Ports (COM & LPT)
+```
+
+**Set in config.yaml:**
+```yaml
+arduino_ir:
+  mode: serial
+  serial_port: "/dev/ttyUSB0"   # or /dev/ttyACM0 for genuine Uno
+  baud_rate: 9600
+```
+
+> **Note:** The Uno resets when you open the serial port. The app waits 2 seconds automatically before sending the first command — don't be alarmed by the brief pause.
+
+---
+
+#### Option B — ESP32 / ESP8266 over WiFi
+
+Sketch: `arduino/ir_blaster.ino`
+
+**Hardware:**
+- Any ESP32 board (ESP32 DevKit, Wemos D1 Mini32, etc.)
+- IR LED + 100Ω resistor → GPIO 4
+- IR receiver (TSOP38238) DATA → GPIO 14, VCC → 3.3V, GND → GND
+
+**Required libraries** (Arduino IDE → Manage Libraries):
 - `IRremoteESP8266` by crankyoldgit
-- `ESPAsyncWebServer` by lacamera/ESP32
+- `ESPAsyncWebServer` by lacamera
 - `AsyncTCP` (ESP32) or `ESPAsyncTCP` (ESP8266)
 - `ArduinoJson` by Benoit Blanchon
 
-**Flash the sketch:**
-1. Open `arduino/ir_blaster.ino` in Arduino IDE
+**Flash:**
+1. Open `arduino/ir_blaster.ino`
 2. Set your WiFi SSID and password at the top of the file
-3. Select your board: ESP32 Dev Module
-4. Flash
+3. Select board: **ESP32 Dev Module**
+4. Flash, then open Serial Monitor at 115200 baud to see the assigned IP
 
-**Set the IP in config.yaml:**
-After flashing, open Serial Monitor at 115200 baud to see the assigned IP, then:
+**Set in config.yaml:**
 ```yaml
 arduino_ir:
+  mode: wifi
   host: "192.168.1.70"
+  port: 80
 ```
 
-**Learn new IR codes:**
-In the UI, go to **Display** → scroll to "IR Code Learner". Enter a device and command name, click **Capture IR**, point your remote at the Arduino, and press the button. Copy the captured hex code into `config.yaml` under the appropriate device.
+---
 
-The IR codes in `config.yaml.example` are common ViewSonic/Vizio codes — your specific model may use different codes. Always learn yours.
+#### Learning IR codes (works the same for both options)
+
+In the UI go to **Display** → "IR Code Learner". Enter a device name and command name, click **Capture IR**, then point your remote at the receiver and press the button. The learned hex code will appear — copy it into `config.yaml`.
+
+The codes in `config.yaml.example` are generic ViewSonic/Vizio starting points. Your specific model almost certainly uses different codes, so always learn them.
 
 ### Roku
 
@@ -158,7 +206,7 @@ After=network.target
 [Service]
 User=$USER
 WorkingDirectory=$(pwd)
-ExecStart=$(pwd)/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080
+ExecStart=$(pwd)/.venv-lcars/bin/uvicorn main:app --host 0.0.0.0 --port 8080
 Restart=always
 
 [Install]
