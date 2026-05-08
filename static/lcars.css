@@ -337,12 +337,14 @@ html, body {
   font-weight: 700;
   color: var(--tan);
   margin-bottom: 8px;
+  text-transform: none;
 }
 
 .device-card .dev-ip {
   font-size: 0.65rem;
   color: var(--dim);
   margin-bottom: 10px;
+  text-transform: none;
 }
 
 .device-card .dev-status {
@@ -642,6 +644,7 @@ input[type=color] {
   color: var(--dim);
   margin-bottom: 16px;
   line-height: 1.5;
+  text-transform: none;
 }
 .scene-btn {
   font-size: 1rem;

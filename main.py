@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from devices.kasa_device import KasaController
-from devices.tuya_device import TuyaController
+from devices.aidot_device import AidotController
 from devices.ecoflow_device import EcoflowController
 from devices.arduino_ir import ArduinoIRController
 from devices.roku_device import RokuController
@@ -32,7 +32,7 @@ if not config:
 
 # Controllers ----------------------------------------------------------------
 kasa      = KasaController(config.get("kasa") or {})
-tuya      = TuyaController(config.get("tuya") or {})
+aidot     = AidotController(config.get("aidot") or {})
 ecoflow   = EcoflowController(config.get("ecoflow") or {})
 arduino   = ArduinoIRController(config.get("arduino_ir") or {})
 roku      = RokuController(config.get("roku") or {})
@@ -89,25 +89,47 @@ async def kasa_power(alias: str, state: bool):
 
 @app.get("/api/lighting/devices")
 async def lighting_devices():
-    return tuya.get_all_status()
+    return aidot.get_all_status()
 
 @app.post("/api/lighting/{name}/power")
 async def lighting_power(name: str, state: bool):
-    result = tuya.set_power(name, state)
-    await broadcast({"type": "tuya", "name": name, "is_on": state})
+    result = await aidot.set_power(name, state)
+    await broadcast({"type": "aidot", "name": name, "is_on": state})
     return result
 
 @app.post("/api/lighting/{name}/brightness")
 async def lighting_brightness(name: str, value: int):
-    return tuya.set_brightness(name, value)
+    return await aidot.set_brightness(name, value)
 
 @app.post("/api/lighting/{name}/color")
 async def lighting_color(name: str, h: int, s: int, v: int):
-    return tuya.set_color(name, h, s, v)
+    return await aidot.set_color(name, h, s, v)
 
 @app.post("/api/lighting/{name}/temp")
 async def lighting_temp(name: str, kelvin: int):
-    return tuya.set_color_temp(name, kelvin)
+    return await aidot.set_color_temp(name, kelvin)
+
+@app.get("/api/lighting/groups")
+async def lighting_groups():
+    return aidot.get_groups_status()
+
+@app.post("/api/lighting/group/{name}/power")
+async def lighting_group_power(name: str, state: bool):
+    result = await aidot.set_group_power(name, state)
+    await broadcast({"type": "aidot_group", "name": name, "is_on": state})
+    return result
+
+@app.post("/api/lighting/group/{name}/brightness")
+async def lighting_group_brightness(name: str, value: int):
+    return await aidot.set_group_brightness(name, value)
+
+@app.post("/api/lighting/group/{name}/color")
+async def lighting_group_color(name: str, h: int, s: int, v: int):
+    return await aidot.set_group_color(name, h, s, v)
+
+@app.post("/api/lighting/group/{name}/temp")
+async def lighting_group_temp(name: str, kelvin: int):
+    return await aidot.set_group_color_temp(name, kelvin)
 
 
 # ── EcoFlow ──────────────────────────────────────────────────────────────────
@@ -245,6 +267,7 @@ async def _poll_loop():
     try:
         await kasa.discover()
         await roku.discover()
+        await aidot.start()
     except Exception as e:
         logger.error(f"Initial discovery error: {e}")
 

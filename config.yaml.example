@@ -9,21 +9,18 @@ kasa:
     # - alias: "3D Printer"
     #   host: "192.168.1.51"
 
-tuya:
-  # AiDot bulbs are Tuya-based.
-  # Run: python3 -m tinytuya scan   to find your device IDs and IPs.
-  # Get local_key from the Tuya IoT Platform (see README).
-  devices:
-    # - id: "xxxxxxxxxxxxxxxxxxxxxxxx"
-    #   ip: "192.168.1.60"
-    #   key: "xxxxxxxxxxxxxxxx"
-    #   version: "3.3"
-    #   name: "Bedroom Bulb"
-    # - id: "yyyyyyyyyyyyyyyyyyyyyyyy"
-    #   ip: "192.168.1.61"
-    #   key: "yyyyyyyyyyyyyyyy"
-    #   version: "3.3"
-    #   name: "Living Room Bulb"
+aidot:
+  # AiDot smart bulbs — uses python-aidot for local LAN control.
+  # Credentials are your AiDot app login. Discovery and control happen
+  # locally after the initial login; no cloud required at runtime.
+  username: "your_aidot_email@example.com"
+  password: "your_aidot_password"
+  country_code: "US"  # US, EU, or JP
+  groups:
+    - name: "Living Room"
+      devices:
+        - "Disco1"
+        - "Disco2"
 
 ecoflow:
   # Local MQTT mode: run Mosquitto locally and redirect the Wave 2 to it.

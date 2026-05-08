@@ -4,6 +4,7 @@
 const state = {
   kasa: [],
   tuya: [],
+  groups: [],
   ecoflow: { state: {}, connected: false },
   roku: { apps: [] },
   ecoSetTemp: 24,
@@ -200,11 +201,65 @@ function renderKasa() {
 // ════════════════════════════════════════════════════════════════════════════
 
 async function tuyaRefresh() {
-  const data = await api('GET', '/api/lighting/devices');
-  if (Array.isArray(data)) {
-    state.tuya = data;
-    renderTuya();
-  }
+  const [devices, groups] = await Promise.all([
+    api('GET', '/api/lighting/devices'),
+    api('GET', '/api/lighting/groups'),
+  ]);
+  if (Array.isArray(devices)) { state.tuya = devices; renderTuya(); }
+  if (Array.isArray(groups))  { state.groups = groups; renderGroups(); }
+}
+
+async function groupToggle(name, currentlyOn) {
+  setAction(`Group ${name}: ${!currentlyOn ? 'ON' : 'OFF'}`);
+  await api('POST', `/api/lighting/group/${encodeURIComponent(name)}/power`, { state: !currentlyOn });
+  tuyaRefresh();
+}
+
+async function groupBrightness(name, val) {
+  await api('POST', `/api/lighting/group/${encodeURIComponent(name)}/brightness`, { value: val });
+}
+
+async function groupColor(name, hex) {
+  const [r, g, b] = hexToRgb(hex);
+  const [h, s, v] = rgbToHsv(r, g, b);
+  await api('POST', `/api/lighting/group/${encodeURIComponent(name)}/color`, {
+    h: Math.round(h * 360), s: Math.round(s * 100), v: Math.round(v * 100)
+  });
+}
+
+async function groupColorTemp(name, kelvin) {
+  await api('POST', `/api/lighting/group/${encodeURIComponent(name)}/temp`, { kelvin });
+}
+
+function renderGroups() {
+  const groups = state.groups || [];
+  const panel = document.getElementById('groups-panel');
+  const container = document.getElementById('light-groups');
+  if (!groups.length) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  setIndicator('groups-indicator', 'on');
+
+  container.innerHTML = groups.map(g => `
+    <div class="device-card">
+      <div class="dev-name">${esc(g.name)}</div>
+      <div class="dev-status">${g.is_on ? '● ON' : '○ OFF'} &nbsp;·&nbsp; ${g.devices.length} bulb(s)</div>
+      <div class="ctrl-row">
+        <button class="lbtn green" onclick="groupToggle('${esc(g.name)}', ${g.is_on})">${g.is_on ? 'Turn OFF' : 'Turn ON'}</button>
+      </div>
+      <div class="ctrl-row" style="margin-top:8px">
+        <span class="ctrl-label">Bright</span>
+        <input type="range" min="10" max="1000" value="500"
+          oninput="groupBrightness('${esc(g.name)}', this.value)">
+      </div>
+      <div class="color-row">
+        <span style="font-size:0.65rem;color:var(--dim);width:80px">Color</span>
+        <input type="color" value="#ffffff" onchange="groupColor('${esc(g.name)}', this.value)">
+        <span style="font-size:0.65rem;color:var(--dim)">temp (K)</span>
+        <input type="range" min="2700" max="6500" step="100" value="4000"
+          oninput="groupColorTemp('${esc(g.name)}', this.value)">
+      </div>
+    </div>
+  `).join('');
 }
 
 async function tuyaToggle(name, currentlyOn) {
@@ -553,13 +608,15 @@ function rgbToHsv(r, g, b) {
   connectWS();
 
   // Load initial data
-  const [kasaData, tuyaData, ecoData] = await Promise.all([
+  const [kasaData, tuyaData, groupData, ecoData] = await Promise.all([
     api('GET', '/api/kasa/devices'),
     api('GET', '/api/lighting/devices'),
+    api('GET', '/api/lighting/groups'),
     api('GET', '/api/climate/status'),
   ]);
 
-  if (Array.isArray(kasaData))  { state.kasa = kasaData;   renderKasa(); }
-  if (Array.isArray(tuyaData))  { state.tuya = tuyaData;   renderTuya(); }
-  if (ecoData && !ecoData.error){ state.ecoflow = ecoData; renderEcoflow(); }
+  if (Array.isArray(kasaData))  { state.kasa = kasaData;     renderKasa(); }
+  if (Array.isArray(tuyaData))  { state.tuya = tuyaData;     renderTuya(); }
+  if (Array.isArray(groupData)) { state.groups = groupData;  renderGroups(); }
+  if (ecoData && !ecoData.error){ state.ecoflow = ecoData;   renderEcoflow(); }
 })();

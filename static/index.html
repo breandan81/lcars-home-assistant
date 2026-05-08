@@ -72,12 +72,25 @@
         </div>
       </div>
 
-      <!-- ═══ LIGHTING (AiDot / Tuya) ════════════════════════════════════ -->
+      <!-- ═══ LIGHTING (AiDot) ═════════════════════════════════════════════ -->
       <div class="section" id="section-lighting">
+
+        <!-- Groups -->
+        <div class="panel" id="groups-panel" style="display:none">
+          <div class="panel-header blue">
+            <span class="indicator" id="groups-indicator"></span>
+            Light Groups
+          </div>
+          <div class="panel-body">
+            <div class="device-grid" id="light-groups"></div>
+          </div>
+        </div>
+
+        <!-- Individual bulbs -->
         <div class="panel">
           <div class="panel-header blue">
             <span class="indicator" id="tuya-indicator"></span>
-            AiDot Bulbs (Tuya Local)
+            AiDot Bulbs
             <span style="margin-left:auto;font-size:0.7rem;font-weight:300" id="tuya-count"></span>
           </div>
           <div class="panel-body">
@@ -85,7 +98,7 @@
               <button class="lbtn blue" onclick="tuyaRefresh()">↺ Refresh</button>
             </div>
             <div class="device-grid" id="tuya-devices">
-              <div style="color:var(--dim);font-size:0.75rem">Configure devices in config.yaml (tuya section)…</div>
+              <div style="color:var(--dim);font-size:0.75rem">Configure aidot credentials in config.yaml…</div>
             </div>
           </div>
         </div>
