@@ -23,16 +23,18 @@ aidot:
         - "Disco2"
 
 ecoflow:
-  # Local MQTT mode: run Mosquitto locally and redirect the Wave 2 to it.
-  # See README for full setup. The SN is on the sticker on your unit.
-  mode: "mqtt_local"          # "mqtt_local" or "cloud"
-  serial_number: "EFDELTA..."  # Your Wave 2 serial number
-  mqtt_host: "127.0.0.1"
-  mqtt_port: 1883
+  # Cloud mode — get API keys from developer.ecoflow.com (free account).
+  # Easiest setup: no local broker or DNS changes needed.
+  mode: "cloud"
+  serial_number: "EFDELTA..."   # sticker on the unit
+  access_key: "your_access_key"
+  secret_key: "your_secret_key"
 
-  # Only needed if mode: "cloud"
-  # api_key: "your_access_key"
-  # api_secret: "your_secret_key"
+  # Local MQTT mode — no internet required at runtime, but needs Mosquitto
+  # installed and mqtt.ecoflow.com DNS-redirected to this machine.
+  # mode: "mqtt_local"
+  # mqtt_host: "127.0.0.1"
+  # mqtt_port: 1883
 
 arduino_ir:
   # ── Choose one mode ──────────────────────────────────────────────────────
