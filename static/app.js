@@ -464,6 +464,47 @@ async function rokuLaunch(appId, name) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// SCENES
+// ════════════════════════════════════════════════════════════════════════════
+
+async function movieMode() {
+  const btn = document.getElementById('movie-btn');
+  const steps = document.getElementById('movie-steps');
+  btn.disabled = true;
+  btn.textContent = '⏳ ACTIVATING…';
+  steps.innerHTML = '<div style="color:var(--dim);font-size:0.7rem">Sending commands… (~6 s)</div>';
+  toast('Movie Mode activating…', 'var(--yellow)');
+
+  const r = await api('POST', '/api/scene/movie');
+
+  btn.disabled = false;
+  btn.textContent = '▶ ACTIVATE';
+
+  if (r.error) {
+    toast('Scene error: ' + r.error, 'var(--red)');
+    steps.innerHTML = `<div style="color:var(--red);font-size:0.7rem">Error: ${esc(r.error)}</div>`;
+    return;
+  }
+
+  toast('Movie Mode activated!', 'var(--green)');
+  setAction('Scene: Movie Mode');
+
+  const labels = {
+    office_plug_off:  'Office plug off',
+    projector_on:     'Projector on',
+    soundbar_on:      'Soundbar on',
+    soundbar_optical: 'Soundbar → Optical',
+  };
+  steps.innerHTML = Object.entries(r.steps || {}).map(([k, v]) => {
+    const ok = !v?.error;
+    const color = ok ? 'var(--green)' : 'var(--red)';
+    const sym   = ok ? '✓' : '✗';
+    const detail = v?.error || (v?.sent ? 'sent' : v?.alias ? 'ok' : '');
+    return `<div style="font-size:0.7rem;color:${color};margin-top:3px">${sym} ${labels[k] || k}${detail ? ' · ' + esc(String(detail)) : ''}</div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // Utilities
 // ════════════════════════════════════════════════════════════════════════════
 

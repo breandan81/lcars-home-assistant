@@ -9,6 +9,7 @@
   --yellow:  #FFCC00;
   --purple:  #CC99FF;
   --green:   #33CC99;
+  --gold:    #FFB700;
   --bg:      #000000;
   --panel:   #0a0a1a;
   --text:    #FF9900;
@@ -184,6 +185,7 @@ html, body {
 .nav-btn.purple  { background: var(--purple); color: #000; }
 .nav-btn.green   { background: var(--green); }
 .nav-btn.lt-blue { background: var(--lt-blue); }
+.nav-btn.gold    { background: var(--gold); color: #000; }
 
 .nav-spacer { flex: 1; }
 
@@ -296,6 +298,7 @@ html, body {
 .panel-header.purple  { background: var(--purple); color: var(--bg); }
 .panel-header.green   { background: var(--green); color: var(--bg); }
 .panel-header.lt-blue { background: var(--lt-blue); color: var(--bg); }
+.panel-header.gold    { background: var(--gold); color: #000; }
 
 .panel-header .indicator {
   width: 10px;
@@ -379,6 +382,7 @@ html, body {
 .lbtn.yellow  { background: var(--yellow); }
 .lbtn.purple  { background: var(--purple); }
 .lbtn.green   { background: var(--green); }
+.lbtn.gold    { background: var(--gold); color: #000; }
 .lbtn.dim     { background: #333; color: #999; }
 .lbtn.active  { outline: 2px solid #fff8; }
 
@@ -617,3 +621,30 @@ input[type=color] {
 }
 
 .lcars-content { position: relative; }
+
+/* Scene cards */
+.scene-card {
+  background: #0d0d22;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 20px 24px;
+  max-width: 420px;
+}
+.scene-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.scene-desc {
+  font-size: 0.7rem;
+  color: var(--dim);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.scene-btn {
+  font-size: 1rem;
+  padding: 10px 32px;
+  letter-spacing: 0.12em;
+}

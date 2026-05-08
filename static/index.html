@@ -41,6 +41,7 @@
       <button class="nav-btn red"           data-section="display">▣ Display</button>
       <button class="nav-btn purple"        data-section="audio">♪ Audio</button>
       <button class="nav-btn lt-blue"       data-section="roku">▶ Roku</button>
+      <button class="nav-btn gold"           data-section="scenes">★ Scenes</button>
       <div class="nav-spacer"></div>
       <div class="lcars-elbow-bl">
         <div class="cap"></div>
@@ -318,6 +319,21 @@
           <div class="panel-body">
             <div class="apps-grid" id="roku-apps">
               <div style="color:var(--dim);font-size:0.75rem">Discover Roku first…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SCENES ══════════════════════════════════════════════════════ -->
+      <div class="section" id="section-scenes">
+        <div class="panel">
+          <div class="panel-header gold">Scene Control</div>
+          <div class="panel-body">
+            <div class="scene-card">
+              <div class="scene-title">MOVIE MODE</div>
+              <div class="scene-desc">Office plug off · Projector on · Soundbar on + optical</div>
+              <button class="lbtn gold scene-btn" id="movie-btn" onclick="movieMode()">▶ ACTIVATE</button>
+              <div id="movie-steps" style="margin-top:12px"></div>
             </div>
           </div>
         </div>

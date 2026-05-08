@@ -192,6 +192,37 @@ async def roku_keys():
     return roku.all_keys()
 
 
+# ── Scenes ───────────────────────────────────────────────────────────────────
+
+@app.post("/api/scene/movie")
+async def scene_movie():
+    steps = {}
+
+    async def _kasa_off():
+        try:
+            return await kasa.set_power("OFFICE", False)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # Step 1: fire simultaneously — Kasa off, projector on
+    r1, r2 = await asyncio.gather(
+        _kasa_off(),
+        arduino.send_command("projector", "power"),
+    )
+    steps["office_plug_off"] = r1
+    steps["projector_on"]    = r2
+
+    # Step 2: soundbar on (slight delay so projector warm-up starts first)
+    await asyncio.sleep(1.5)
+    steps["soundbar_on"] = await arduino.send_command("soundbar", "power")
+
+    # Step 3: soundbar optical — wait for soundbar to finish booting
+    await asyncio.sleep(4)
+    steps["soundbar_optical"] = await arduino.send_command("soundbar", "optical")
+
+    return {"scene": "movie", "steps": steps}
+
+
 # ── Frontend -----------------------------------------------------------------
 
 app.mount("/static", StaticFiles(directory="static"), name="static")

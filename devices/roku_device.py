@@ -112,6 +112,9 @@ class RokuController:
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.get(f"{self._base_url}query/apps")
+                if resp.status_code != 200:
+                    logger.error(f"Roku apps HTTP {resp.status_code}: {resp.text[:200]}")
+                    return []
                 root = ET.fromstring(resp.text)
                 return [
                     {"id": app.get("id"), "name": app.text, "version": app.get("version")}
@@ -120,6 +123,7 @@ class RokuController:
         except Exception as e:
             logger.error(f"Roku get_apps: {e}")
             return []
+
 
     async def keypress(self, key: str) -> dict:
         if not self._base_url:
