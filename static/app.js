@@ -363,6 +363,17 @@ async function irSend(device, command) {
   }
 }
 
+async function projectorOff() {
+  const btn = document.getElementById('proj-off-btn');
+  btn.disabled = true;
+  btn.textContent = '…';
+  await irSend('projector', 'power');
+  await new Promise(r => setTimeout(r, 3000));
+  await irSend('projector', 'power');
+  btn.disabled = false;
+  btn.textContent = 'OFF';
+}
+
 // Fan commands go through the same /api/ir/ endpoint — backend routes to RF
 async function fanCmd(command) {
   setAction(`Fan: ${command}`);

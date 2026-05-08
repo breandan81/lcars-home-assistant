@@ -185,7 +185,8 @@
           </div>
           <div class="panel-body">
             <div class="ctrl-row">
-              <button class="lbtn green power-btn" onclick="irSend('projector','power')" title="Power">⏻</button>
+              <button class="lbtn green power-btn" onclick="irSend('projector','power')" title="Power On">⏻</button>
+              <button class="lbtn red"   onclick="projectorOff()" id="proj-off-btn" title="Power Off">OFF</button>
               <button class="lbtn dim"   onclick="irSend('projector','source')">Source</button>
               <button class="lbtn dim"   onclick="irSend('projector','menu')">Menu</button>
               <button class="lbtn dim"   onclick="irSend('projector','mute')">Mute</button>
