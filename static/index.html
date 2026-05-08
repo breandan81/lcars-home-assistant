@@ -42,6 +42,7 @@
       <button class="nav-btn purple"        data-section="audio">♪ Audio</button>
       <button class="nav-btn lt-blue"       data-section="roku">▶ Roku</button>
       <button class="nav-btn gold"           data-section="scenes">★ Scenes</button>
+      <button class="nav-btn green"          data-section="learn">◎ Learn</button>
       <div class="nav-spacer"></div>
       <div class="lcars-elbow-bl">
         <div class="cap"></div>
@@ -182,7 +183,7 @@
               <button class="lbtn dim" onclick="fanCmd('direction')">Reverse</button>
             </div>
             <div style="margin-top:10px;font-size:0.65rem;color:var(--dim)">
-              Codes not yet learned — use RF Learner in the Display section.
+              Codes not yet learned — use the ◎ Learn page to capture them.
             </div>
           </div>
         </div>
@@ -198,8 +199,8 @@
           </div>
           <div class="panel-body">
             <div class="ctrl-row">
-              <button class="lbtn green power-btn" onclick="irSend('projector','power')" title="Power On">⏻</button>
-              <button class="lbtn red"   onclick="projectorOff()" id="proj-off-btn" title="Power Off">OFF</button>
+              <button class="lbtn green power-btn" onclick="irSend('projector','power_on')" title="Power On">⏻ ON</button>
+              <button class="lbtn red"             onclick="irSend('projector','power_off')" title="Power Off">⏻ OFF</button>
               <button class="lbtn dim"   onclick="irSend('projector','source')">Source</button>
               <button class="lbtn dim"   onclick="irSend('projector','menu')">Menu</button>
               <button class="lbtn dim"   onclick="irSend('projector','mute')">Mute</button>
@@ -221,32 +222,6 @@
               <button class="lbtn dim" onclick="irSend('projector','keystone_p')">＋</button>
               <button class="lbtn dim" onclick="irSend('projector','keystone_n')">－</button>
             </div>
-          </div>
-        </div>
-        <!-- IR Learn -->
-        <div class="panel">
-          <div class="panel-header dim" style="background:#1a1a2a;color:var(--dim)">IR Code Learner</div>
-          <div class="panel-body learn-area">
-            <div style="font-size:0.7rem;color:var(--dim)">Point your IR remote at the Arduino and click Capture. Copy the code into config.yaml.</div>
-            <div class="learn-row">
-              <input type="text" id="learn-device"  placeholder="device (e.g. projector)" style="width:150px">
-              <input type="text" id="learn-command" placeholder="command (e.g. power)">
-              <button class="lbtn yellow" onclick="irLearn()">◎ Capture IR</button>
-            </div>
-            <div id="learn-result" style="font-size:0.75rem;color:var(--green);margin-top:4px"></div>
-          </div>
-        </div>
-        <!-- RF Learn -->
-        <div class="panel">
-          <div class="panel-header dim" style="background:#1a1a2a;color:var(--dim)">RF Code Learner (433 MHz)</div>
-          <div class="panel-body learn-area">
-            <div style="font-size:0.7rem;color:var(--dim)">Hold your RF remote near the receiver and click Capture. Copy the code into config.yaml under the ceiling_fan device.</div>
-            <div class="learn-row">
-              <input type="text" id="rf-learn-device"  placeholder="device (e.g. ceiling_fan)" style="width:150px">
-              <input type="text" id="rf-learn-command" placeholder="command (e.g. fan_low)">
-              <button class="lbtn green" onclick="rfLearn()">◎ Capture RF</button>
-            </div>
-            <div id="rf-learn-result" style="font-size:0.75rem;color:var(--green);margin-top:4px"></div>
           </div>
         </div>
       </div>
@@ -349,6 +324,64 @@
               <button class="lbtn gold scene-btn" id="movie-btn" onclick="movieMode()">▶ ACTIVATE</button>
               <div id="movie-steps" style="margin-top:12px"></div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ LEARN (IR/RF Code Learner) ════════════════════════════════════ -->
+      <div class="section" id="section-learn">
+        <div class="panel">
+          <div class="panel-header green">
+            <span class="indicator" id="learn-indicator"></span>
+            IR / RF Code Learner
+            <span style="margin-left:auto;font-size:0.7rem;font-weight:300" id="learn-arduino-label"></span>
+          </div>
+          <div class="panel-body" style="max-width:560px">
+
+            <!-- Step 1: Device -->
+            <div class="learn-step active" id="lstep1">
+              <div class="step-label">1 — Select Device</div>
+              <div class="ctrl-row">
+                <select id="learn-dev-select" onchange="learnSelectDevice(this.value)">
+                  <option value="">— choose device —</option>
+                </select>
+                <span id="learn-dev-badge" class="code-badge" style="display:none"></span>
+              </div>
+            </div>
+
+            <!-- Step 2: Command -->
+            <div class="learn-step" id="lstep2">
+              <div class="step-label">2 — Select or Name Command</div>
+              <div class="ctrl-row">
+                <select id="learn-cmd-select" onchange="learnSelectCommand(this.value)">
+                  <option value="">— choose existing command —</option>
+                </select>
+              </div>
+              <div class="ctrl-row" style="margin-top:4px">
+                <span class="ctrl-label">New name</span>
+                <input type="text" id="learn-cmd-custom" placeholder="e.g. fan_low"
+                       oninput="learnCustomCommand(this.value)" class="learn-text-input">
+              </div>
+              <div id="learn-current-code" style="margin-top:8px;font-size:0.7rem"></div>
+            </div>
+
+            <!-- Step 3: Capture -->
+            <div class="learn-step" id="lstep3">
+              <div class="step-label">3 — Capture Signal</div>
+              <div style="font-size:0.7rem;color:var(--dim);margin-bottom:8px" id="learn-hint"></div>
+              <div class="ctrl-row">
+                <button class="lbtn yellow" id="learn-capture-btn" onclick="learnCapture()">◎ Capture (12s)</button>
+              </div>
+              <div id="learn-captured" style="margin-top:8px;font-size:0.75rem"></div>
+            </div>
+
+            <!-- Step 4: Save -->
+            <div class="learn-step" id="lstep4">
+              <div class="step-label">4 — Save to Config</div>
+              <button class="lbtn green" id="learn-save-btn" onclick="learnSave()">✓ Save to config.yaml</button>
+              <div id="learn-save-result" style="margin-top:6px;font-size:0.75rem"></div>
+            </div>
+
           </div>
         </div>
       </div>

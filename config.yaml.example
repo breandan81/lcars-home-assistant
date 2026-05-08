@@ -66,7 +66,8 @@ arduino_ir:
       name: "ViewSonic Projector"
       protocol: "NEC"
       commands:
-        power:       "0x807F817E"
+        power_on:    "0x000000"
+        power_off:   "0x000000"
         menu:        "0x807FD12E"
         up:          "0x807F8D72"
         down:        "0x807F8D73"

@@ -69,6 +69,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.classList.add('active');
     const sec = document.getElementById('section-' + btn.dataset.section);
     if (sec) sec.classList.add('active');
+    if (btn.dataset.section === 'learn') learnInit();
   });
 });
 
@@ -418,17 +419,6 @@ async function irSend(device, command) {
   }
 }
 
-async function projectorOff() {
-  const btn = document.getElementById('proj-off-btn');
-  btn.disabled = true;
-  btn.textContent = '…';
-  await irSend('projector', 'power');
-  await new Promise(r => setTimeout(r, 3000));
-  await irSend('projector', 'power');
-  btn.disabled = false;
-  btn.textContent = 'OFF';
-}
-
 // Fan commands go through the same /api/ir/ endpoint — backend routes to RF
 async function fanCmd(command) {
   setAction(`Fan: ${command}`);
@@ -449,40 +439,198 @@ async function fanCmd(command) {
   }
 }
 
-// IR learner
-async function irLearn() {
-  const device  = document.getElementById('learn-device').value.trim();
-  const command = document.getElementById('learn-command').value.trim();
-  if (!device || !command) { toast('Enter device and command name', 'var(--yellow)'); return; }
+// ════════════════════════════════════════════════════════════════════════════
+// LEARN PAGE
+// ════════════════════════════════════════════════════════════════════════════
 
-  toast('Point IR remote at Arduino and hold button…', 'var(--yellow)');
-  const r = await api('GET', '/api/ir/learn', { device, command });
-  const res = document.getElementById('learn-result');
-  if (r.error) {
-    res.style.color = 'var(--red)';
-    res.textContent = '⚠ ' + r.error;
-  } else if (r.code) {
-    res.style.color = 'var(--green)';
-    res.textContent = `✓ ${device}/${command} = ${r.code}  protocol:${r.protocol}  (add to config.yaml)`;
+const learnState = {
+  devices: [],
+  allCodes: {},
+  device: null,        // selected device object
+  commandName: '',     // final command name (from dropdown or custom input)
+  capturedCode: null,  // { code, protocol?, bits? } from learn endpoint
+};
+
+async function learnInit() {
+  const [devices, codes, ping] = await Promise.all([
+    api('GET', '/api/ir/devices'),
+    api('GET', '/api/ir/codes'),
+    api('GET', '/api/ir/ping'),
+  ]);
+
+  learnState.devices  = Array.isArray(devices) ? devices : [];
+  learnState.allCodes = (codes && !codes.error) ? codes : {};
+
+  const label = document.getElementById('learn-arduino-label');
+  if (ping.online) {
+    label.textContent = `Arduino ONLINE · ${ping.mode}: ${ping.host}`;
+    setIndicator('learn-indicator', 'on');
+    _arduinoOnline();
+  } else {
+    label.textContent = 'Arduino OFFLINE';
+    setIndicator('learn-indicator', 'err');
+  }
+
+  const sel = document.getElementById('learn-dev-select');
+  sel.innerHTML = '<option value="">— choose device —</option>' +
+    learnState.devices.map(d =>
+      `<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.type.toUpperCase())})</option>`
+    ).join('');
+
+  learnSetStep(1);
+}
+
+function learnSetStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById(`lstep${i}`);
+    if (!el) continue;
+    el.classList.remove('active', 'done');
+    if (i < n)       el.classList.add('done');
+    else if (i === n) el.classList.add('active');
   }
 }
 
-// RF learner
-async function rfLearn() {
-  const device  = document.getElementById('rf-learn-device').value.trim();
-  const command = document.getElementById('rf-learn-command').value.trim();
-  if (!device || !command) { toast('Enter device and command name', 'var(--yellow)'); return; }
+function learnSelectDevice(devId) {
+  learnState.device = learnState.devices.find(d => d.id === devId) || null;
+  learnState.commandName = '';
+  learnState.capturedCode = null;
 
-  toast('Hold RF remote near receiver and press button…', 'var(--yellow)');
-  const r = await api('GET', '/api/rf/learn', { device, command });
-  const res = document.getElementById('rf-learn-result');
+  document.getElementById('learn-captured').innerHTML = '';
+  document.getElementById('learn-save-result').innerHTML = '';
+  document.getElementById('learn-cmd-custom').value = '';
+  document.getElementById('learn-current-code').innerHTML = '';
+
+  if (!learnState.device) { learnSetStep(1); return; }
+
+  const badge = document.getElementById('learn-dev-badge');
+  const dev = learnState.device;
+  badge.textContent = dev.type.toUpperCase();
+  badge.className = 'code-badge ' + (dev.type === 'rf' ? 'rf-badge' : 'ir-badge');
+  badge.style.display = '';
+
+  const cmdSel = document.getElementById('learn-cmd-select');
+  cmdSel.innerHTML = '<option value="">— choose existing command —</option>' +
+    (dev.commands || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  learnSetStep(2);
+}
+
+function learnSelectCommand(cmdName) {
+  if (!cmdName) return;
+  document.getElementById('learn-cmd-custom').value = '';
+  learnState.commandName = cmdName;
+  learnState.capturedCode = null;
+  document.getElementById('learn-captured').innerHTML = '';
+  document.getElementById('learn-save-result').innerHTML = '';
+  _learnShowCurrentCode(cmdName);
+  _learnUpdateHint();
+  learnSetStep(3);
+}
+
+function learnCustomCommand(val) {
+  const name = val.trim().toLowerCase().replace(/\s+/g, '_');
+  learnState.commandName = name;
+  learnState.capturedCode = null;
+  document.getElementById('learn-captured').innerHTML = '';
+  document.getElementById('learn-save-result').innerHTML = '';
+  if (name) {
+    document.getElementById('learn-cmd-select').value = '';
+    _learnShowCurrentCode(name);
+    _learnUpdateHint();
+    learnSetStep(3);
+  } else {
+    document.getElementById('learn-current-code').innerHTML = '';
+    learnSetStep(2);
+  }
+}
+
+function _learnShowCurrentCode(cmdName) {
+  const el = document.getElementById('learn-current-code');
+  const devId = learnState.device?.id;
+  const code = learnState.allCodes?.[devId]?.commands?.[cmdName];
+  if (code && code !== '0x000000') {
+    el.innerHTML = `Current: <span class="code-badge learned">${esc(code)}</span>`;
+  } else {
+    el.innerHTML = `<span class="code-badge unlearned">Not yet learned</span>`;
+  }
+}
+
+function _learnUpdateHint() {
+  const el = document.getElementById('learn-hint');
+  if (!learnState.device) return;
+  if (learnState.device.type === 'rf') {
+    el.textContent = 'Hold your 433 MHz remote near the receiver module and press the button when ready.';
+  } else {
+    el.textContent = 'Point your IR remote directly at the Arduino receiver and press the button when ready.';
+  }
+}
+
+async function learnCapture() {
+  const { device, commandName } = learnState;
+  if (!device || !commandName) { toast('Select a device and command first', 'var(--yellow)'); return; }
+
+  const btn = document.getElementById('learn-capture-btn');
+  const resultEl = document.getElementById('learn-captured');
+  btn.disabled = true;
+  btn.textContent = '⏳ Listening…';
+  resultEl.innerHTML = '<span style="color:var(--yellow)">Waiting for signal — up to 12 s…</span>';
+  toast(device.type === 'rf' ? 'Press RF remote button…' : 'Press IR remote button…', 'var(--yellow)');
+
+  const endpoint = device.type === 'rf' ? '/api/rf/learn' : '/api/ir/learn';
+  const r = await api('GET', endpoint, { device: device.id, command: commandName });
+
+  btn.disabled = false;
+  btn.textContent = '◎ Capture (12s)';
+
   if (r.error) {
-    res.style.color = 'var(--red)';
-    res.textContent = '⚠ ' + r.error;
-  } else if (r.code) {
-    res.style.color = 'var(--green)';
-    res.textContent = `✓ ${device}/${command} = ${r.code}  bits:${r.bits}  protocol:${r.protocol}  (add to config.yaml)`;
-    _arduinoOnline();
+    resultEl.innerHTML = `<span style="color:var(--red)">⚠ ${esc(r.error)}</span>`;
+    toast('Capture failed', 'var(--red)');
+    return;
+  }
+
+  learnState.capturedCode = r;
+  learnState.allCodes[device.id] ??= { commands: {} };
+  learnState.allCodes[device.id].commands[commandName] = r.code;
+
+  let detail = `Code: <span class="code-badge learned">${esc(r.code)}</span>`;
+  if (r.protocol != null) detail += `  &nbsp;Protocol: ${esc(String(r.protocol))}`;
+  if (r.bits     != null) detail += `  &nbsp;Bits: ${r.bits}`;
+  resultEl.innerHTML = `<span style="color:var(--green)">✓ Captured!</span>&nbsp;&nbsp;${detail}`;
+  toast('Signal captured!', 'var(--green)');
+  _arduinoOnline();
+  learnSetStep(4);
+}
+
+async function learnSave() {
+  const { device, commandName, capturedCode } = learnState;
+  if (!device || !commandName || !capturedCode) {
+    toast('Capture a signal first', 'var(--yellow)');
+    return;
+  }
+
+  const btn = document.getElementById('learn-save-btn');
+  const resultEl = document.getElementById('learn-save-result');
+  btn.disabled = true;
+  btn.textContent = '⏳ Saving…';
+
+  const r = await api('POST', '/api/ir/save-code', {
+    device_id: device.id,
+    command_name: commandName,
+    code: capturedCode.code,
+  });
+
+  btn.disabled = false;
+  btn.textContent = '✓ Save to config.yaml';
+
+  if (r.error) {
+    resultEl.innerHTML = `<span style="color:var(--red)">⚠ ${esc(r.error)}</span>`;
+    toast('Save failed', 'var(--red)');
+  } else {
+    resultEl.innerHTML = `<span style="color:var(--green)">✓ Saved ${esc(device.id)}/${esc(commandName)} = ${esc(capturedCode.code)}</span>`;
+    toast('Code saved to config.yaml', 'var(--green)');
+    setAction(`Saved: ${device.id}/${commandName}`);
+    // Update displayed current code
+    _learnShowCurrentCode(commandName);
   }
 }
 

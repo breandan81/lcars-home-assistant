@@ -20,11 +20,13 @@ logger = logging.getLogger(__name__)
 
 # Load config ----------------------------------------------------------------
 config: dict = {}
+_config_path = Path("config.yaml")
 for name in ("config.yaml", "config.yml"):
     p = Path(name)
     if p.exists():
         with open(p) as f:
             config = yaml.safe_load(f) or {}
+        _config_path = p
         break
 
 if not config:
@@ -185,6 +187,19 @@ async def ir_ping():
     ok = await arduino.ping()
     return {"online": ok, "host": arduino.host, "mode": arduino.mode}
 
+@app.post("/api/ir/save-code")
+async def ir_save_code(device_id: str, command_name: str, code: str):
+    dev = arduino.devices_config.get(device_id)
+    if dev is None:
+        return {"error": f"Device '{device_id}' not found in config"}
+    dev.setdefault("commands", {})[command_name] = code
+    try:
+        with open(_config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        return {"saved": True, "device": device_id, "command": command_name, "code": code}
+    except Exception as e:
+        return {"error": f"Saved in memory but config write failed: {e}"}
+
 
 # ── Roku ─────────────────────────────────────────────────────────────────────
 
@@ -229,7 +244,7 @@ async def scene_movie():
     # Step 1: fire simultaneously — Kasa off, projector on
     r1, r2 = await asyncio.gather(
         _kasa_off(),
-        arduino.send_command("projector", "power"),
+        arduino.send_command("projector", "power_on"),
     )
     steps["office_plug_off"] = r1
     steps["projector_on"]    = r2
