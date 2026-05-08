@@ -731,3 +731,171 @@ select option { background: #0d0d1f; }
 .code-badge.unlearned { background: #1a0a0a; color: #884444;      border: 1px solid #442222; }
 .code-badge.ir-badge  { background: #0a0a1f; color: var(--blue);  border: 1px solid var(--blue); }
 .code-badge.rf-badge  { background: #1a0f00; color: var(--orange); border: 1px solid var(--orange); }
+
+/* ── RESPONSIVE ──────────────────────────────────────────────────────────────
+   Tablet: 601–860px  |  Phone: ≤600px
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── TABLET ── */
+@media (max-width: 860px) {
+  :root {
+    --sidebar: 110px;
+    --hdr: 60px;
+    --radius: 22px;
+  }
+
+  .lcars-header-title .system-name { font-size: 1.5rem; }
+
+  /* Keep elbows but recalculate cuts for narrower sidebar */
+  .lcars-elbow-tl      { width: var(--sidebar); }
+  .lcars-elbow-tl .cut { width: calc(var(--sidebar) - 32px); }
+  .lcars-elbow-bl .cut { width: calc(var(--sidebar) - 32px); }
+  .lcars-elbow-bl-footer { width: var(--sidebar); }
+
+  .hbar { width: 52px; }
+
+  .nav-btn {
+    font-size: 0.75rem;
+    padding-left: 10px;
+    height: 36px;
+  }
+
+  /* More usable touch targets */
+  .lbtn { min-height: 38px; padding: 6px 14px; }
+  .power-btn { width: 46px; height: 46px; }
+}
+
+/* ── PHONE ── */
+@media (max-width: 600px) {
+  :root {
+    --hdr: 50px;
+  }
+
+  /* Frame: just header + body (footer hidden) */
+  .lcars-frame {
+    grid-template-rows: var(--hdr) 1fr;
+    padding: 0;
+    height: 100dvh; /* dynamic viewport height — accounts for browser chrome */
+  }
+
+  .lcars-footer { display: none; }
+
+  /* Body fills remaining height; column so nav goes below content */
+  .lcars-body {
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Content scrolls, takes all available space */
+  .lcars-content {
+    order: 1;
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  /* Sidebar → sticky bottom tab bar */
+  .lcars-sidebar {
+    order: 2;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: auto;
+    padding: 5px 6px;
+    padding-top: 5px;
+    background: #08080f;
+    border-top: 3px solid var(--orange);
+    gap: 4px;
+    flex-shrink: 0;
+    /* hide scrollbar on mobile */
+    scrollbar-width: none;
+  }
+  .lcars-sidebar::-webkit-scrollbar { display: none; }
+
+  .nav-spacer { display: none; }
+  .lcars-elbow-bl { display: none; }
+
+  .nav-btn {
+    flex-shrink: 0;
+    height: 38px;
+    border-radius: 19px;
+    padding: 0 12px;
+    font-size: 0.72rem;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  /* Header: flat coloured bar, no elbow */
+  .lcars-elbow-tl { display: none; }
+
+  .lcars-header {
+    padding: 0 10px;
+    background: var(--orange);
+    gap: 0;
+  }
+
+  .lcars-header-title {
+    border-top: none;
+    background: transparent;
+    padding: 0 10px;
+    flex: 1;
+  }
+
+  .lcars-header-title .system-name {
+    font-size: 1.1rem;
+    color: var(--bg);
+  }
+
+  .lcars-header-title .system-sub {
+    font-size: 0.6rem;
+    color: rgba(0,0,0,0.55);
+  }
+
+  .hbar { display: none; }
+
+  .lcars-status-box {
+    border: none;
+    border-radius: 0;
+    padding: 0 8px;
+    background: rgba(0,0,0,0.18);
+  }
+
+  .lcars-status-box span { color: rgba(0,0,0,0.75) !important; }
+
+  /* Bigger touch targets */
+  .lbtn {
+    min-height: 42px;
+    padding: 8px 16px;
+    font-size: 0.8rem;
+  }
+
+  .power-btn { width: 50px; height: 50px; font-size: 1.3rem; }
+
+  /* Larger d-pad buttons */
+  .dpad {
+    grid-template-columns: 54px 54px 54px;
+    grid-template-rows: 54px 54px 54px;
+    gap: 5px;
+  }
+  .dpad .lbtn { width: 54px; height: 54px; font-size: 1.1rem; }
+
+  /* Single-column device grid */
+  .device-grid { grid-template-columns: 1fr; }
+
+  /* Learn page: remove max-width restriction */
+  .panel-body[style*="max-width"] { max-width: 100% !important; }
+
+  /* Scene card: full width */
+  .scene-card { max-width: 100%; }
+
+  /* Reduce panel padding */
+  .panel-body { padding: 10px; }
+
+  /* Climate flex column on phone */
+  .panel-body > div[style*="display:flex"][style*="gap:24px"] {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
