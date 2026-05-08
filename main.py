@@ -200,7 +200,7 @@ async def scene_movie():
 
     async def _kasa_off():
         try:
-            return await kasa.set_power("OFFICE", False)
+            return await kasa.set_power("office", False)
         except Exception as e:
             return {"error": str(e)}
 
