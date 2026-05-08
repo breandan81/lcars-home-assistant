@@ -140,7 +140,7 @@ class _HttpTransport:
 class ArduinoIRController:
     def __init__(self, config: dict):
         self.config = config
-        self.devices_config: Dict[str, Any] = config.get("devices", {})
+        self.devices_config: Dict[str, Any] = config.get("devices") or {}
 
         mode = config.get("mode", "wifi").lower()
         if mode == "serial":

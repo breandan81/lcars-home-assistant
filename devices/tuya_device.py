@@ -18,7 +18,7 @@ class TuyaController:
         self._build_devices()
 
     def _build_devices(self):
-        for d in self.config.get("devices", []):
+        for d in self.config.get("devices") or []:
             try:
                 bulb = tinytuya.BulbDevice(
                     dev_id=d["id"],

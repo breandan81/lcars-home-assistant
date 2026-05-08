@@ -16,7 +16,7 @@ class KasaController:
     def __init__(self, config: dict):
         self.config = config
         self._devices: Dict[str, Any] = {}
-        self._pinned = config.get("devices", [])
+        self._pinned = config.get("devices") or []
 
     async def discover(self) -> List[dict]:
         if not KASA_AVAILABLE:

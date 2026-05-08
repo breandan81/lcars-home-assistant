@@ -31,11 +31,11 @@ if not config:
     logger.warning("No config.yaml found — copy config.yaml.example and fill in your devices.")
 
 # Controllers ----------------------------------------------------------------
-kasa      = KasaController(config.get("kasa", {}))
-tuya      = TuyaController(config.get("tuya", {}))
-ecoflow   = EcoflowController(config.get("ecoflow", {}))
-arduino   = ArduinoIRController(config.get("arduino_ir", {}))
-roku      = RokuController(config.get("roku", {}))
+kasa      = KasaController(config.get("kasa") or {})
+tuya      = TuyaController(config.get("tuya") or {})
+ecoflow   = EcoflowController(config.get("ecoflow") or {})
+arduino   = ArduinoIRController(config.get("arduino_ir") or {})
+roku      = RokuController(config.get("roku") or {})
 
 # App ------------------------------------------------------------------------
 app = FastAPI(title="LCARS Home Control", docs_url="/api/docs")
