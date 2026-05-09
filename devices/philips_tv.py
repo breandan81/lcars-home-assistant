@@ -26,7 +26,7 @@ _DEVICE_INFO = {
     "type": "native",
 }
 # Known HMAC-SHA1 secret used by Philips JointSpace v6 pairing
-_SECRET = base64.b64decode("ZmVay1EQVFOaZhwQ4Ku6RFdD0ANd+Ybv5LCaH4WdrI=")
+_SECRET = base64.b64decode("ZmVay1EQVFOaZhwQ4Ku6RFdD0ANd+Ybv5LCaH4WdrI==")
 
 
 def _ssdp_candidates(timeout: float) -> List[str]:
