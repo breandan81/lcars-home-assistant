@@ -434,8 +434,16 @@ function renderEcoflow() {
 // ARDUINO IR + RF
 // ════════════════════════════════════════════════════════════════════════════
 
+function _setArduinoStatus(online) {
+  const el = document.getElementById('arduino-status');
+  if (el) el.textContent = online ? 'Arduino ONLINE' : 'Arduino OFFLINE';
+  if (!online) {
+    ['proj-indicator', 'sb-indicator', 'fan-indicator'].forEach(id => setIndicator(id, 'err'));
+  }
+}
+
 function _arduinoOnline() {
-  document.getElementById('arduino-status').textContent = 'Arduino ONLINE';
+  _setArduinoStatus(true);
 }
 
 // IR send (also used for RF devices — backend routes by device type)
@@ -790,15 +798,19 @@ function rgbToHsv(r, g, b) {
   connectWS();
 
   // Load initial data
-  const [kasaData, tuyaData, groupData, ecoData] = await Promise.all([
+  const [kasaData, tuyaData, groupData, ecoData, pingData] = await Promise.all([
     api('GET', '/api/kasa/devices'),
     api('GET', '/api/lighting/devices'),
     api('GET', '/api/lighting/groups'),
     api('GET', '/api/climate/status'),
+    api('GET', '/api/ir/ping'),
   ]);
 
   if (Array.isArray(kasaData))  { state.kasa = kasaData;     renderKasa(); }
   if (Array.isArray(tuyaData))  { state.tuya = tuyaData;     renderTuya(); }
   if (Array.isArray(groupData)) { state.groups = groupData;  renderGroups(); }
   if (ecoData && !ecoData.error){ state.ecoflow = ecoData;   renderEcoflow(); }
+
+  _setArduinoStatus(pingData?.online === true);
+  if (!pingData?.online) toast('Arduino offline — IR/RF unavailable', 'var(--red)');
 })();
