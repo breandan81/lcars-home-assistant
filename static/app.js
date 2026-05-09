@@ -244,6 +244,19 @@ async function tuyaRefresh() {
   if (Array.isArray(groups))  { state.groups = groups; renderGroups(); }
 }
 
+async function tuyaRelogin() {
+  setAction('AiDot: re-logging in…');
+  const result = await api('POST', '/api/lighting/refresh');
+  if (result && typeof result.count === 'number') {
+    setAction(`AiDot: found ${result.count} device(s)`);
+    if (Array.isArray(result.devices)) { state.tuya = result.devices; renderTuya(); }
+    const groups = await api('GET', '/api/lighting/groups');
+    if (Array.isArray(groups)) { state.groups = groups; renderGroups(); }
+  } else {
+    setAction('AiDot re-login failed — check server logs');
+  }
+}
+
 async function groupToggle(name, currentlyOn) {
   setAction(`Group ${name}: ${!currentlyOn ? 'ON' : 'OFF'}`);
   await api('POST', `/api/lighting/group/${encodeURIComponent(name)}/power`, { state: !currentlyOn });

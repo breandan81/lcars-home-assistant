@@ -97,6 +97,12 @@ async def kasa_power(alias: str, state: bool):
 async def lighting_devices():
     return aidot.get_all_status()
 
+@app.post("/api/lighting/refresh")
+async def lighting_refresh():
+    await aidot.start()
+    devices = aidot.get_all_status()
+    return {"count": len(devices), "devices": devices}
+
 @app.post("/api/lighting/{name}/power")
 async def lighting_power(name: str, state: bool):
     result = await aidot.set_power(name, state)

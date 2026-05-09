@@ -29,6 +29,8 @@ class AidotController:
         if not username or not password:
             logger.info("AiDot: no credentials configured, skipping")
             return
+        await self.close()
+        self._devices = {}
         try:
             self._session = aiohttp.ClientSession()
             self._client = AidotClient(
