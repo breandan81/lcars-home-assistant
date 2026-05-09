@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 .env
 config.yaml
+snapshot.json
 *.egg-info/
 dist/
 build/
