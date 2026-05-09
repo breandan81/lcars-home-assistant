@@ -332,6 +332,15 @@ async def philips_select(host: str, name: str = ""):
         _save_philips_config()
     except Exception as e:
         return {**philips.get_status(), "warning": f"Config save failed: {e}"}
+    if philips._is_paired():
+        asyncio.create_task(philips._connect())
+    return philips.get_status()
+
+@app.post("/api/philips/connect")
+async def philips_connect():
+    if not philips.host:
+        raise HTTPException(status_code=400, detail="TV not configured")
+    await philips._connect()
     return philips.get_status()
 
 @app.get("/api/philips/status")

@@ -781,13 +781,20 @@ function renderPhilipsStatus(d) {
   const info = document.getElementById('philips-info');
   const table = document.getElementById('philips-table');
   if (info) info.textContent = d.name || '';
-  setIndicator('philips-indicator', d.connected ? 'on' : d.paired ? 'warn' : 'err');
+  setIndicator('philips-indicator', d.connected ? 'on' : (d.paired && !d.needs_reauth) ? 'warn' : 'err');
+  const statusText = d.connected ? 'Connected'
+    : d.needs_reauth ? 'Cert rejected — re-pair needed'
+    : d.paired ? 'Disconnected (TV off?)'
+    : 'Not paired';
   if (table) {
     table.innerHTML = [
       ['Host',   d.host || '--'],
-      ['Paired', d.paired ? 'Yes' : 'No'],
-      ['Status', d.connected ? 'Connected' : d.paired ? 'Disconnected' : 'Not paired'],
+      ['Status', statusText],
     ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+  }
+  if (d.needs_reauth) {
+    document.getElementById('philips-pair-status').innerHTML =
+      '<span style="color:var(--red)">⚠ TV rejected the cert — click Start Pairing to re-pair.</span>';
   }
 }
 
@@ -855,6 +862,20 @@ async function philipsSelect(host, name) {
   } else {
     toast('Select failed: ' + r.error, 'var(--red)');
   }
+}
+
+async function philipsConnect() {
+  setAction('Philips TV: connecting…');
+  const r = await api('POST', '/api/philips/connect');
+  if (r.error || r.detail) {
+    toast('Connect failed: ' + (r.detail || r.error), 'var(--red)');
+    return;
+  }
+  renderPhilipsStatus(r);
+  const msg = r.connected ? 'Philips TV connected'
+    : r.needs_reauth ? 'TV rejected cert — click Start Pairing'
+    : 'TV unreachable — is it on?';
+  toast(msg, r.connected ? 'var(--green)' : 'var(--yellow)');
 }
 
 async function philipsPairRequest() {

@@ -70,6 +70,7 @@ class PhilipsTVController:
         self.name = config.get("name", "Philips TV")
         self._atv = None          # AndroidTVRemote instance (persistent connection)
         self._connected = False
+        self._needs_reauth = False
         self._pairing_atv = None  # held open between pair_request and pair_grant
 
     def _is_paired(self) -> bool:
@@ -81,6 +82,7 @@ class PhilipsTVController:
             "name": self.name,
             "paired": self._is_paired(),
             "connected": self._connected,
+            "needs_reauth": self._needs_reauth,
         }
 
     def select(self, host: str, name: str = "") -> None:
@@ -115,9 +117,14 @@ class PhilipsTVController:
             await atv.async_connect()
             self._atv = atv
             self._connected = True
+            self._needs_reauth = False
             atv.keep_reconnecting()
             logger.info(f"Philips TV connected: {self.host}")
-        except (CannotConnect, InvalidAuth) as e:
+        except InvalidAuth as e:
+            logger.warning(f"Philips TV auth rejected — need to re-pair: {e}")
+            atv.disconnect()
+            self._needs_reauth = True
+        except CannotConnect as e:
             logger.warning(f"Philips TV connect failed: {e}")
             atv.disconnect()
 
@@ -136,6 +143,10 @@ class PhilipsTVController:
         from androidtvremote2 import AndroidTVRemote, CannotConnect
         if self._pairing_atv:
             self._pairing_atv.disconnect()
+        # Always regenerate cert so every pairing attempt starts clean
+        for f in (Path(_CERT_FILE), Path(_KEY_FILE)):
+            f.unlink(missing_ok=True)
+        self._disconnect()
         atv = AndroidTVRemote(_CLIENT_NAME, _CERT_FILE, _KEY_FILE, self.host)
         await atv.async_generate_cert_if_missing()
         try:
