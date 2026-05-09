@@ -41,6 +41,7 @@
       <button class="nav-btn red"           data-section="display">▣ Display</button>
       <button class="nav-btn purple"        data-section="audio">♪ Audio</button>
       <button class="nav-btn lt-blue"       data-section="roku">▶ Roku</button>
+      <button class="nav-btn lilac"           data-section="philips">▣ Philips</button>
       <button class="nav-btn tan"            data-section="samsung">▣ Samsung</button>
       <button class="nav-btn gold"           data-section="scenes">★ Scenes</button>
       <button class="nav-btn green"          data-section="learn">◎ Learn</button>
@@ -309,6 +310,82 @@
           <div class="panel-body">
             <div class="apps-grid" id="roku-apps">
               <div style="color:var(--dim);font-size:0.75rem">Discover Roku first…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PHILIPS TV ════════════════════════════════════════════════════ -->
+      <div class="section" id="section-philips">
+
+        <!-- Connection / Pairing -->
+        <div class="panel">
+          <div class="panel-header lilac">
+            <span class="indicator" id="philips-indicator"></span>
+            Philips TV
+            <span style="margin-left:auto;font-size:0.7rem;font-weight:300" id="philips-info"></span>
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row">
+              <button class="lbtn lilac" onclick="philipsDiscover()" id="philips-discover-btn">↺ Discover</button>
+              <button class="lbtn lilac" onclick="philipsPairRequest()" id="philips-pair-btn">⇄ Start Pairing</button>
+            </div>
+            <div id="philips-discovered" style="margin-top:8px"></div>
+            <!-- PIN entry — shown after pair request -->
+            <div id="philips-pin-row" style="display:none;margin-top:10px">
+              <div style="font-size:0.75rem;color:var(--yellow);margin-bottom:6px">
+                Enter the PIN shown on your TV:
+              </div>
+              <div class="ctrl-row">
+                <input type="text" id="philips-pin" placeholder="e.g. 1234" maxlength="8"
+                       style="width:120px;font-size:1rem;letter-spacing:0.2em;text-align:center"
+                       class="learn-text-input">
+                <button class="lbtn green" onclick="philipsPairGrant()">✓ Submit PIN</button>
+              </div>
+            </div>
+            <div id="philips-pair-status" style="margin-top:8px;font-size:0.75rem"></div>
+            <table class="data-table" id="philips-table" style="margin-top:10px"></table>
+          </div>
+        </div>
+
+        <!-- Remote -->
+        <div class="panel">
+          <div class="panel-header lilac">Remote</div>
+          <div class="panel-body">
+            <div class="ctrl-row">
+              <button class="lbtn green power-btn" onclick="philipsKey('Standby')" title="Power Toggle">⏻</button>
+              <button class="lbtn dim"             onclick="philipsKey('Source')">Source</button>
+              <button class="lbtn dim"             onclick="philipsKey('Home')">⌂ Home</button>
+              <button class="lbtn dim"             onclick="philipsKey('SmartTV')">Smart TV</button>
+            </div>
+            <div class="dpad" style="margin:12px 0">
+              <button class="lbtn blue dpad-up"       onclick="philipsKey('CursorUp')">▲</button>
+              <button class="lbtn blue dpad-left"     onclick="philipsKey('CursorLeft')">◀</button>
+              <button class="lbtn orange dpad-center" onclick="philipsKey('Confirm')">OK</button>
+              <button class="lbtn blue dpad-right"    onclick="philipsKey('CursorRight')">▶</button>
+              <button class="lbtn blue dpad-down"     onclick="philipsKey('CursorDown')">▼</button>
+            </div>
+            <div class="ctrl-row">
+              <button class="lbtn dim" onclick="philipsKey('Back')">← Back</button>
+              <button class="lbtn dim" onclick="philipsKey('Options')">Options</button>
+              <button class="lbtn dim" onclick="philipsKey('Info')">Info</button>
+            </div>
+            <div class="ctrl-row" style="margin-top:8px">
+              <span class="ctrl-label">Volume</span>
+              <button class="lbtn orange" onclick="philipsKey('VolumeUp')">＋</button>
+              <button class="lbtn orange" onclick="philipsKey('VolumeDown')">－</button>
+              <button class="lbtn dim"    onclick="philipsKey('Mute')">Mute</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Channel</span>
+              <button class="lbtn dim" onclick="philipsKey('ChannelSwitchUp')">＋</button>
+              <button class="lbtn dim" onclick="philipsKey('ChannelSwitchDown')">－</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Playback</span>
+              <button class="lbtn dim"    onclick="philipsKey('Rewind')">⏪</button>
+              <button class="lbtn orange" onclick="philipsKey('Play')">⏯</button>
+              <button class="lbtn dim"    onclick="philipsKey('FastForward')">⏩</button>
             </div>
           </div>
         </div>

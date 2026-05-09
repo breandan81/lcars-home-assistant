@@ -15,6 +15,7 @@ from devices.ecoflow_device import EcoflowController
 from devices.arduino_ir import ArduinoIRController
 from devices.roku_device import RokuController
 from devices.samsung_tv import SamsungTVController
+from devices.philips_tv import PhilipsTVController
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ ecoflow   = EcoflowController(config.get("ecoflow") or {})
 arduino   = ArduinoIRController(config.get("arduino_ir") or {})
 roku      = RokuController(config.get("roku") or {})
 samsung   = SamsungTVController(config.get("samsung_tv") or {})
+philips   = PhilipsTVController(config.get("philips_tv") or {})
 
 # App ------------------------------------------------------------------------
 app = FastAPI(title="LCARS Home Control", docs_url="/api/docs")
@@ -279,6 +281,57 @@ async def samsung_key(key: str):
         except Exception:
             pass
     return result
+
+
+# ── Philips TV ────────────────────────────────────────────────────────────────
+
+def _save_philips_config():
+    cfg = config.setdefault("philips_tv", {})
+    cfg.update({
+        "host": philips.host,
+        "port": philips.port,
+        "api_version": philips.api_version,
+        "name": philips.name,
+        "username": philips.username or "",
+        "password": philips.password or "",
+    })
+    with open(_config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+@app.get("/api/philips/discover")
+async def philips_discover():
+    return await philips.discover()
+
+@app.post("/api/philips/select")
+async def philips_select(host: str, port: int = 1925, api_version: int = 6, name: str = ""):
+    philips.select(host, port, api_version, name)
+    try:
+        _save_philips_config()
+    except Exception as e:
+        return {**philips.get_status(), "warning": f"Config save failed: {e}"}
+    return philips.get_status()
+
+@app.get("/api/philips/status")
+async def philips_status():
+    return philips.get_status()
+
+@app.post("/api/philips/pair/request")
+async def philips_pair_request():
+    return await philips.pair_request()
+
+@app.post("/api/philips/pair/grant")
+async def philips_pair_grant(pin: str):
+    result = await philips.pair_grant(pin)
+    if result.get("paired"):
+        try:
+            _save_philips_config()
+        except Exception as e:
+            result["warning"] = f"Paired but config save failed: {e}"
+    return result
+
+@app.post("/api/philips/keypress/{key}")
+async def philips_key(key: str):
+    return await philips.send_key(key)
 
 
 # ── Scenes ───────────────────────────────────────────────────────────────────

@@ -112,6 +112,14 @@ roku:
   # Leave host empty to auto-discover via SSDP.
   # host: "192.168.1.80"
 
+philips_tv:
+  host: "192.168.1.x"   # IP address of your TV
+  port: 1925             # JointSpace API port (default 1925)
+  api_version: 6         # 6 for 2016+ Android TVs; 1 for older models
+  name: "Philips TV"
+  username: ""           # filled in automatically after PIN pairing
+  password: ""           # filled in automatically after PIN pairing
+
 samsung_tv:
   host: "192.168.1.x"   # IP address of your TV
   port: 8002             # 8002 for newer models (SSL WebSocket)

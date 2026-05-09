@@ -10,6 +10,7 @@
   --purple:  #CC99FF;
   --green:   #33CC99;
   --gold:    #FFB700;
+  --lilac:   #CC88CC;
   --bg:      #000000;
   --panel:   #0a0a1a;
   --text:    #FF9900;
@@ -187,6 +188,7 @@ html, body {
 .nav-btn.lt-blue { background: var(--lt-blue); }
 .nav-btn.gold    { background: var(--gold); color: #000; }
 .nav-btn.tan     { background: var(--tan);  color: #000; }
+.nav-btn.lilac   { background: var(--lilac); color: #000; }
 
 .nav-spacer { flex: 1; }
 
@@ -301,6 +303,7 @@ html, body {
 .panel-header.lt-blue { background: var(--lt-blue); color: var(--bg); }
 .panel-header.gold    { background: var(--gold); color: #000; }
 .panel-header.tan     { background: var(--tan);  color: var(--bg); }
+.panel-header.lilac   { background: var(--lilac); color: var(--bg); }
 
 .panel-header .indicator {
   width: 10px;
@@ -388,6 +391,7 @@ html, body {
 .lbtn.green   { background: var(--green); }
 .lbtn.gold    { background: var(--gold); color: #000; }
 .lbtn.tan     { background: var(--tan);  color: #000; }
+.lbtn.lilac   { background: var(--lilac); color: #000; }
 .lbtn.dim     { background: #333; color: #999; }
 .lbtn.active  { outline: 2px solid #fff8; }
 
