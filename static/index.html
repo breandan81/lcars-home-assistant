@@ -41,6 +41,7 @@
       <button class="nav-btn red"           data-section="display">▣ Display</button>
       <button class="nav-btn purple"        data-section="audio">♪ Audio</button>
       <button class="nav-btn lt-blue"       data-section="roku">▶ Roku</button>
+      <button class="nav-btn tan"            data-section="samsung">▣ Samsung</button>
       <button class="nav-btn gold"           data-section="scenes">★ Scenes</button>
       <button class="nav-btn green"          data-section="learn">◎ Learn</button>
       <div class="nav-spacer"></div>
@@ -308,6 +309,68 @@
           <div class="panel-body">
             <div class="apps-grid" id="roku-apps">
               <div style="color:var(--dim);font-size:0.75rem">Discover Roku first…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SAMSUNG TV ════════════════════════════════════════════════════ -->
+      <div class="section" id="section-samsung">
+
+        <!-- Connection / Pairing -->
+        <div class="panel">
+          <div class="panel-header tan">
+            <span class="indicator" id="samsung-indicator"></span>
+            Samsung TV
+            <span style="margin-left:auto;font-size:0.7rem;font-weight:300" id="samsung-info"></span>
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row">
+              <button class="lbtn tan" onclick="samsungPair()" id="samsung-pair-btn">⇄ Pair with TV</button>
+            </div>
+            <div id="samsung-pair-status" style="margin-top:8px;font-size:0.75rem"></div>
+            <table class="data-table" id="samsung-table" style="margin-top:10px"></table>
+          </div>
+        </div>
+
+        <!-- Remote -->
+        <div class="panel">
+          <div class="panel-header tan">Remote</div>
+          <div class="panel-body">
+            <div class="ctrl-row">
+              <button class="lbtn green power-btn" onclick="samsungKey('KEY_POWERON')"  title="Power On">⏻ ON</button>
+              <button class="lbtn red"             onclick="samsungKey('KEY_POWEROFF')" title="Power Off">⏻ OFF</button>
+              <button class="lbtn dim"             onclick="samsungKey('KEY_SOURCE')">Source</button>
+              <button class="lbtn dim"             onclick="samsungKey('KEY_MENU')">Menu</button>
+            </div>
+            <div class="dpad" style="margin:12px 0">
+              <button class="lbtn blue dpad-up"       onclick="samsungKey('KEY_UP')">▲</button>
+              <button class="lbtn blue dpad-left"     onclick="samsungKey('KEY_LEFT')">◀</button>
+              <button class="lbtn orange dpad-center" onclick="samsungKey('KEY_ENTER')">OK</button>
+              <button class="lbtn blue dpad-right"    onclick="samsungKey('KEY_RIGHT')">▶</button>
+              <button class="lbtn blue dpad-down"     onclick="samsungKey('KEY_DOWN')">▼</button>
+            </div>
+            <div class="ctrl-row">
+              <button class="lbtn orange" onclick="samsungKey('KEY_HOME')">⌂ Home</button>
+              <button class="lbtn dim"    onclick="samsungKey('KEY_RETURN')">← Back</button>
+              <button class="lbtn dim"    onclick="samsungKey('KEY_EXIT')">Exit</button>
+            </div>
+            <div class="ctrl-row" style="margin-top:8px">
+              <span class="ctrl-label">Volume</span>
+              <button class="lbtn orange" onclick="samsungKey('KEY_VOLUP')">＋</button>
+              <button class="lbtn orange" onclick="samsungKey('KEY_VOLDOWN')">－</button>
+              <button class="lbtn dim"    onclick="samsungKey('KEY_MUTE')">Mute</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Channel</span>
+              <button class="lbtn dim" onclick="samsungKey('KEY_CHUP')">＋</button>
+              <button class="lbtn dim" onclick="samsungKey('KEY_CHDOWN')">－</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Playback</span>
+              <button class="lbtn dim"    onclick="samsungKey('KEY_REWIND')">⏪</button>
+              <button class="lbtn orange" onclick="samsungKey('KEY_PLAY')">⏯</button>
+              <button class="lbtn dim"    onclick="samsungKey('KEY_FF')">⏩</button>
             </div>
           </div>
         </div>

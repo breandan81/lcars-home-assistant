@@ -761,6 +761,67 @@ async function movieMode() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// SAMSUNG TV
+// ════════════════════════════════════════════════════════════════════════════
+
+function renderSamsungStatus(d) {
+  const info = document.getElementById('samsung-info');
+  const table = document.getElementById('samsung-table');
+  if (info) info.textContent = d.name || '';
+  setIndicator('samsung-indicator', d.paired ? 'on' : 'warn');
+  if (table) {
+    table.innerHTML = [
+      ['Host',   d.host || '--'],
+      ['Status', d.paired ? 'Paired' : 'Not paired'],
+    ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+  }
+}
+
+async function samsungRefresh() {
+  const d = await api('GET', '/api/samsung/status');
+  if (!d.error) renderSamsungStatus(d);
+}
+
+async function samsungPair() {
+  const btn = document.getElementById('samsung-pair-btn');
+  const statusEl = document.getElementById('samsung-pair-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Waiting…';
+  statusEl.innerHTML = '<span style="color:var(--yellow)">Accept the popup on your TV remote — up to 30 s…</span>';
+  toast('Check your TV for an authorization popup', 'var(--yellow)');
+
+  const r = await api('POST', '/api/samsung/pair');
+
+  btn.disabled = false;
+  btn.textContent = '⇄ Pair with TV';
+
+  if (r.paired) {
+    statusEl.innerHTML = '<span style="color:var(--green)">✓ Paired successfully</span>';
+    toast('Samsung TV paired!', 'var(--green)');
+    setIndicator('samsung-indicator', 'on');
+    setAction('Samsung TV: paired');
+  } else {
+    statusEl.innerHTML = `<span style="color:var(--red)">⚠ ${esc(r.error || 'Pairing failed')}</span>`;
+    toast('Pairing failed: ' + (r.error || 'unknown'), 'var(--red)');
+  }
+  if (r.warning) {
+    statusEl.innerHTML += `<br><span style="color:var(--yellow);font-size:0.65rem">${esc(r.warning)}</span>`;
+  }
+}
+
+async function samsungKey(key) {
+  setAction(`Samsung: ${key}`);
+  const r = await api('POST', `/api/samsung/keypress/${key}`);
+  if (r.error) {
+    toast('Samsung: ' + r.error, 'var(--red)');
+    setIndicator('samsung-indicator', 'err');
+  } else {
+    toast(`Sent: ${key}`, 'var(--green)');
+    setIndicator('samsung-indicator', 'on');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // Utilities
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -798,12 +859,13 @@ function rgbToHsv(r, g, b) {
   connectWS();
 
   // Load initial data
-  const [kasaData, tuyaData, groupData, ecoData, pingData] = await Promise.all([
+  const [kasaData, tuyaData, groupData, ecoData, pingData, samsungData] = await Promise.all([
     api('GET', '/api/kasa/devices'),
     api('GET', '/api/lighting/devices'),
     api('GET', '/api/lighting/groups'),
     api('GET', '/api/climate/status'),
     api('GET', '/api/ir/ping'),
+    api('GET', '/api/samsung/status'),
   ]);
 
   if (Array.isArray(kasaData))  { state.kasa = kasaData;     renderKasa(); }
@@ -813,4 +875,6 @@ function rgbToHsv(r, g, b) {
 
   _setArduinoStatus(pingData?.online === true);
   if (!pingData?.online) toast('Arduino offline — IR/RF unavailable', 'var(--red)');
+
+  if (samsungData && !samsungData.error) renderSamsungStatus(samsungData);
 })();

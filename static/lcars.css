@@ -186,6 +186,7 @@ html, body {
 .nav-btn.green   { background: var(--green); }
 .nav-btn.lt-blue { background: var(--lt-blue); }
 .nav-btn.gold    { background: var(--gold); color: #000; }
+.nav-btn.tan     { background: var(--tan);  color: #000; }
 
 .nav-spacer { flex: 1; }
 
@@ -299,6 +300,7 @@ html, body {
 .panel-header.green   { background: var(--green); color: var(--bg); }
 .panel-header.lt-blue { background: var(--lt-blue); color: var(--bg); }
 .panel-header.gold    { background: var(--gold); color: #000; }
+.panel-header.tan     { background: var(--tan);  color: var(--bg); }
 
 .panel-header .indicator {
   width: 10px;
@@ -385,6 +387,7 @@ html, body {
 .lbtn.purple  { background: var(--purple); }
 .lbtn.green   { background: var(--green); }
 .lbtn.gold    { background: var(--gold); color: #000; }
+.lbtn.tan     { background: var(--tan);  color: #000; }
 .lbtn.dim     { background: #333; color: #999; }
 .lbtn.active  { outline: 2px solid #fff8; }
 

@@ -111,3 +111,9 @@ arduino_ir:
 roku:
   # Leave host empty to auto-discover via SSDP.
   # host: "192.168.1.80"
+
+samsung_tv:
+  host: "192.168.1.x"   # IP address of your TV
+  port: 8002             # 8002 for newer models (SSL WebSocket)
+  name: "Samsung TV"    # friendly name shown in the UI
+  token: ""              # filled in automatically after pairing via the UI

@@ -14,6 +14,7 @@ from devices.aidot_device import AidotController
 from devices.ecoflow_device import EcoflowController
 from devices.arduino_ir import ArduinoIRController
 from devices.roku_device import RokuController
+from devices.samsung_tv import SamsungTVController
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ aidot     = AidotController(config.get("aidot") or {})
 ecoflow   = EcoflowController(config.get("ecoflow") or {})
 arduino   = ArduinoIRController(config.get("arduino_ir") or {})
 roku      = RokuController(config.get("roku") or {})
+samsung   = SamsungTVController(config.get("samsung_tv") or {})
 
 # App ------------------------------------------------------------------------
 app = FastAPI(title="LCARS Home Control", docs_url="/api/docs")
@@ -227,6 +229,37 @@ async def roku_launch(app_id: str):
 @app.get("/api/roku/keys")
 async def roku_keys():
     return roku.all_keys()
+
+
+# ── Samsung TV ───────────────────────────────────────────────────────────────
+
+@app.get("/api/samsung/status")
+async def samsung_status():
+    return samsung.get_status()
+
+@app.post("/api/samsung/pair")
+async def samsung_pair():
+    result = await samsung.pair()
+    if result.get("paired"):
+        config.setdefault("samsung_tv", {})["token"] = result["token"]
+        try:
+            with open(_config_path, "w") as f:
+                yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        except Exception as e:
+            result["warning"] = f"Paired but config save failed: {e}"
+    return result
+
+@app.post("/api/samsung/keypress/{key}")
+async def samsung_key(key: str):
+    result = await samsung.send_key(key)
+    if samsung.token and samsung.token != config.get("samsung_tv", {}).get("token"):
+        config.setdefault("samsung_tv", {})["token"] = samsung.token
+        try:
+            with open(_config_path, "w") as f:
+                yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        except Exception:
+            pass
+    return result
 
 
 # ── Scenes ───────────────────────────────────────────────────────────────────
