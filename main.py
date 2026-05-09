@@ -233,6 +233,25 @@ async def roku_keys():
 
 # ── Samsung TV ───────────────────────────────────────────────────────────────
 
+@app.get("/api/samsung/discover")
+async def samsung_discover():
+    return await samsung.discover()
+
+@app.post("/api/samsung/select")
+async def samsung_select(host: str, name: str = ""):
+    samsung.select(host, name)
+    cfg = config.setdefault("samsung_tv", {})
+    cfg["host"] = host
+    if name:
+        cfg["name"] = name
+    cfg["token"] = ""
+    try:
+        with open(_config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    except Exception as e:
+        return {**samsung.get_status(), "warning": f"Config save failed: {e}"}
+    return samsung.get_status()
+
 @app.get("/api/samsung/status")
 async def samsung_status():
     return samsung.get_status()

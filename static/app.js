@@ -782,6 +782,47 @@ async function samsungRefresh() {
   if (!d.error) renderSamsungStatus(d);
 }
 
+async function samsungDiscover() {
+  const btn = document.getElementById('samsung-discover-btn');
+  const el  = document.getElementById('samsung-discovered');
+  btn.disabled = true;
+  btn.textContent = '⏳ Scanning…';
+  el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">Searching (5 s)…</span>';
+  toast('Scanning for Samsung TVs…');
+
+  const devices = await api('GET', '/api/samsung/discover');
+
+  btn.disabled = false;
+  btn.textContent = '↺ Discover';
+
+  if (!Array.isArray(devices) || devices.length === 0) {
+    el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">No Samsung TVs found — enter IP in config.yaml manually.</span>';
+    toast('No Samsung TVs found', 'var(--yellow)');
+    return;
+  }
+
+  toast(`Found ${devices.length} TV(s)`, 'var(--green)');
+  el.innerHTML = devices.map(d => `
+    <div class="ctrl-row" style="margin-top:4px">
+      <span style="font-size:0.7rem;color:var(--lt-blue);flex:1">${esc(d.name)} &nbsp;·&nbsp; ${esc(d.host)}</span>
+      <button class="lbtn tan" style="font-size:0.65rem" onclick="samsungSelect('${esc(d.host)}', '${esc(d.name)}')">Select</button>
+    </div>
+  `).join('');
+}
+
+async function samsungSelect(host, name) {
+  const r = await api('POST', '/api/samsung/select', { host, name });
+  document.getElementById('samsung-discovered').innerHTML = '';
+  if (!r.error) {
+    renderSamsungStatus(r);
+    toast(`Selected: ${name}`, 'var(--green)');
+    document.getElementById('samsung-pair-status').innerHTML =
+      '<span style="color:var(--yellow)">TV selected — click Pair with TV to authorize.</span>';
+  } else {
+    toast('Select failed: ' + r.error, 'var(--red)');
+  }
+}
+
 async function samsungPair() {
   const btn = document.getElementById('samsung-pair-btn');
   const statusEl = document.getElementById('samsung-pair-status');
