@@ -249,12 +249,14 @@ async def samsung_probe(host: str):
     raise HTTPException(status_code=404, detail="No Samsung TV found at that IP")
 
 @app.post("/api/samsung/select")
-async def samsung_select(host: str, name: str = ""):
-    samsung.select(host, name)
+async def samsung_select(host: str, name: str = "", mac: str = ""):
+    samsung.select(host, name, mac)
     cfg = config.setdefault("samsung_tv", {})
     cfg["host"] = host
     if name:
         cfg["name"] = name
+    if mac:
+        cfg["mac"] = mac
     cfg["token"] = ""
     try:
         with open(_config_path, "w") as f:
@@ -262,6 +264,10 @@ async def samsung_select(host: str, name: str = ""):
     except Exception as e:
         return {**samsung.get_status(), "warning": f"Config save failed: {e}"}
     return samsung.get_status()
+
+@app.post("/api/samsung/wake")
+async def samsung_wake():
+    return await samsung.wake()
 
 @app.get("/api/samsung/status")
 async def samsung_status():

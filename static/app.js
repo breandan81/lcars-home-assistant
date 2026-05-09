@@ -926,7 +926,7 @@ async function samsungDiscover() {
   el.innerHTML = devices.map(d => `
     <div class="ctrl-row" style="margin-top:4px">
       <span style="font-size:0.7rem;color:var(--lt-blue);flex:1">${esc(d.name)} &nbsp;·&nbsp; ${esc(d.host)}</span>
-      <button class="lbtn tan" style="font-size:0.65rem" onclick="samsungSelect('${esc(d.host)}', '${esc(d.name)}')">Select</button>
+      <button class="lbtn tan" style="font-size:0.65rem" onclick="samsungSelect('${esc(d.host)}', '${esc(d.name)}', '${esc(d.mac||'')}')">Select</button>
     </div>
   `).join('');
 }
@@ -947,12 +947,12 @@ async function samsungProbeManual() {
   el.innerHTML = `
     <div class="ctrl-row" style="margin-top:4px">
       <span style="font-size:0.7rem;color:var(--lt-blue);flex:1">${esc(r.name)} &nbsp;·&nbsp; ${esc(r.host)}</span>
-      <button class="lbtn tan" style="font-size:0.65rem" onclick="samsungSelect('${esc(r.host)}', '${esc(r.name)}')">Select</button>
+      <button class="lbtn tan" style="font-size:0.65rem" onclick="samsungSelect('${esc(r.host)}', '${esc(r.name)}', '${esc(r.mac||'')}')">Select</button>
     </div>`;
 }
 
-async function samsungSelect(host, name) {
-  const r = await api('POST', '/api/samsung/select', { host, name });
+async function samsungSelect(host, name, mac = '') {
+  const r = await api('POST', '/api/samsung/select', { host, name, mac });
   document.getElementById('samsung-discovered').innerHTML = '';
   if (!r.error) {
     renderSamsungStatus(r);
@@ -988,6 +988,18 @@ async function samsungPair() {
   }
   if (r.warning) {
     statusEl.innerHTML += `<br><span style="color:var(--yellow);font-size:0.65rem">${esc(r.warning)}</span>`;
+  }
+}
+
+async function samsungWake() {
+  setAction('Samsung: Power On');
+  const r = await api('POST', '/api/samsung/wake');
+  if (r.error) {
+    toast('Power On failed: ' + r.error, 'var(--red)');
+  } else if (r.note) {
+    toast('WoL sent — may not work if TV is in deep sleep', 'var(--yellow)');
+  } else {
+    toast('TV powered on', 'var(--green)');
   }
 }
 
