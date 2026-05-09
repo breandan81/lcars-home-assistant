@@ -3,14 +3,29 @@ import logging
 import socket
 from typing import List, Optional
 
+import httpx
+
 logger = logging.getLogger(__name__)
 
 _APP_NAME = "LCARS Home Control"
 
-
 _SSDP_ADDR = "239.255.255.255"
 _SSDP_PORT = 1900
-_SSDP_ST   = "urn:samsung.com:device:RemoteControlReceiver:1"
+
+
+def _probe_samsung(host: str) -> Optional[dict]:
+    """Check if host is a Samsung TV by hitting the REST info endpoint."""
+    try:
+        r = httpx.get(f"http://{host}:8001/api/v2/", timeout=1.5)
+        if r.status_code == 200:
+            data = r.json()
+            device = data.get("device", {})
+            name = (device.get("name") or device.get("modelName")
+                    or f"Samsung TV ({host})")
+            return {"host": host, "port": 8002, "name": name}
+    except Exception:
+        pass
+    return None
 
 
 def _ssdp_search(timeout: float) -> List[dict]:
@@ -19,35 +34,30 @@ def _ssdp_search(timeout: float) -> List[dict]:
         f"HOST: {_SSDP_ADDR}:{_SSDP_PORT}\r\n"
         'MAN: "ssdp:discover"\r\n'
         "MX: 3\r\n"
-        f"ST: {_SSDP_ST}\r\n"
+        "ST: ssdp:all\r\n"
         "\r\n"
     ).encode()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
     sock.settimeout(timeout)
+    seen: set = set()
     try:
         sock.sendto(msg, (_SSDP_ADDR, _SSDP_PORT))
-        seen: set = set()
-        devices: List[dict] = []
         while True:
             try:
-                data, addr = sock.recvfrom(4096)
-                host = addr[0]
-                if host in seen:
-                    continue
-                seen.add(host)
-                text = data.decode(errors="replace")
-                name = f"Samsung TV ({host})"
-                for line in text.splitlines():
-                    if line.upper().startswith("SERVER:"):
-                        name = line.split(":", 1)[1].strip()
-                        break
-                devices.append({"host": host, "port": 8002, "name": name})
+                _, addr = sock.recvfrom(4096)
+                seen.add(addr[0])
             except socket.timeout:
                 break
     finally:
         sock.close()
+
+    devices = []
+    for host in seen:
+        result = _probe_samsung(host)
+        if result:
+            devices.append(result)
     return devices
 
 

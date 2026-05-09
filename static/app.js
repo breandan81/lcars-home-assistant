@@ -917,7 +917,7 @@ async function samsungDiscover() {
   btn.textContent = '↺ Discover';
 
   if (!Array.isArray(devices) || devices.length === 0) {
-    el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">No Samsung TVs found — enter IP in config.yaml manually.</span>';
+    el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">No Samsung TVs found — enter the TV\'s IP address above and click Connect.</span>';
     toast('No Samsung TVs found', 'var(--yellow)');
     return;
   }
@@ -929,6 +929,26 @@ async function samsungDiscover() {
       <button class="lbtn tan" style="font-size:0.65rem" onclick="samsungSelect('${esc(d.host)}', '${esc(d.name)}')">Select</button>
     </div>
   `).join('');
+}
+
+async function samsungProbeManual() {
+  const input = document.getElementById('samsung-manual-ip');
+  const host = input.value.trim();
+  if (!host) return;
+  const el = document.getElementById('samsung-discovered');
+  el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">Connecting…</span>';
+  const r = await api('GET', '/api/samsung/probe', { host });
+  if (r.error || r.detail) {
+    el.innerHTML = `<span style="color:var(--red);font-size:0.75rem">Not found: ${esc(r.detail || r.error)}</span>`;
+    toast('No Samsung TV at that IP', 'var(--red)');
+    return;
+  }
+  toast(`Found: ${r.name}`, 'var(--green)');
+  el.innerHTML = `
+    <div class="ctrl-row" style="margin-top:4px">
+      <span style="font-size:0.7rem;color:var(--lt-blue);flex:1">${esc(r.name)} &nbsp;·&nbsp; ${esc(r.host)}</span>
+      <button class="lbtn tan" style="font-size:0.65rem" onclick="samsungSelect('${esc(r.host)}', '${esc(r.name)}')">Select</button>
+    </div>`;
 }
 
 async function samsungSelect(host, name) {

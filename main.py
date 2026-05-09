@@ -239,6 +239,15 @@ async def roku_keys():
 async def samsung_discover():
     return await samsung.discover()
 
+@app.get("/api/samsung/probe")
+async def samsung_probe(host: str):
+    loop = asyncio.get_event_loop()
+    from devices.samsung_tv import _probe_samsung
+    result = await loop.run_in_executor(None, _probe_samsung, host)
+    if result:
+        return result
+    raise HTTPException(status_code=404, detail="No Samsung TV found at that IP")
+
 @app.post("/api/samsung/select")
 async def samsung_select(host: str, name: str = ""):
     samsung.select(host, name)

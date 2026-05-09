@@ -406,6 +406,12 @@
               <button class="lbtn tan" onclick="samsungDiscover()" id="samsung-discover-btn">↺ Discover</button>
               <button class="lbtn tan" onclick="samsungPair()" id="samsung-pair-btn">⇄ Pair with TV</button>
             </div>
+            <div class="ctrl-row" style="margin-top:8px">
+              <input id="samsung-manual-ip" type="text" placeholder="TV IP address (e.g. 192.168.1.50)"
+                     style="flex:1;background:#111;color:#eee;border:1px solid #555;padding:4px 8px;font-family:inherit;font-size:0.8rem"
+                     onkeydown="if(event.key==='Enter')samsungProbeManual()">
+              <button class="lbtn tan" onclick="samsungProbeManual()">Connect</button>
+            </div>
             <div id="samsung-discovered" style="margin-top:8px"></div>
             <div id="samsung-pair-status" style="margin-top:8px;font-size:0.75rem"></div>
             <table class="data-table" id="samsung-table" style="margin-top:10px"></table>
