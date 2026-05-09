@@ -62,16 +62,50 @@ function setWsDot(ok) {
 }
 
 // ── Nav ───────────────────────────────────────────────────────────────────
-document.querySelectorAll('.nav-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+const NAV_SECTIONS = [...document.querySelectorAll('.nav-btn')].map(b => b.dataset.section);
+
+function showSection(name) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  const btn = document.querySelector(`.nav-btn[data-section="${name}"]`);
+  if (btn) {
     btn.classList.add('active');
-    const sec = document.getElementById('section-' + btn.dataset.section);
-    if (sec) sec.classList.add('active');
-    if (btn.dataset.section === 'learn') learnInit();
-  });
+    btn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }
+  const sec = document.getElementById('section-' + name);
+  if (sec) {
+    sec.classList.add('active');
+    document.getElementById('content-area').scrollTop = 0;
+  }
+  if (name === 'learn') learnInit();
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => showSection(btn.dataset.section));
 });
+
+// ── Swipe to change section ───────────────────────────────────────────────
+(function () {
+  const content = document.getElementById('content-area');
+  let x0 = 0, y0 = 0, swipeLocked = false;
+
+  content.addEventListener('touchstart', e => {
+    x0 = e.touches[0].clientX;
+    y0 = e.touches[0].clientY;
+    swipeLocked = !!e.target.closest('input, select, textarea, button');
+  }, { passive: true });
+
+  content.addEventListener('touchend', e => {
+    if (swipeLocked) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    const dy = e.changedTouches[0].clientY - y0;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return; // too short or mostly vertical
+    const active = document.querySelector('.nav-btn.active')?.dataset.section;
+    const idx = NAV_SECTIONS.indexOf(active);
+    const next = dx < 0 ? NAV_SECTIONS[idx + 1] : NAV_SECTIONS[idx - 1];
+    if (next) showSection(next);
+  }, { passive: true });
+})();
 
 // ── Stardate ──────────────────────────────────────────────────────────────
 function updateStardate() {
