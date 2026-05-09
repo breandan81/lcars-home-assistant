@@ -308,14 +308,7 @@ async def samsung_key(key: str):
 
 def _save_philips_config():
     cfg = config.setdefault("philips_tv", {})
-    cfg.update({
-        "host": philips.host,
-        "port": philips.port,
-        "api_version": philips.api_version,
-        "name": philips.name,
-        "username": philips.username or "",
-        "password": philips.password or "",
-    })
+    cfg.update({"host": philips.host, "name": philips.name})
     with open(_config_path, "w") as f:
         yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
@@ -323,9 +316,18 @@ def _save_philips_config():
 async def philips_discover():
     return await philips.discover()
 
+@app.get("/api/philips/probe")
+async def philips_probe(host: str):
+    loop = asyncio.get_event_loop()
+    from devices.philips_tv import _probe_android_tv
+    result = await loop.run_in_executor(None, _probe_android_tv, host)
+    if result:
+        return result
+    raise HTTPException(status_code=404, detail="No Philips TV found at that IP")
+
 @app.post("/api/philips/select")
-async def philips_select(host: str, port: int = 1925, api_version: int = 6, name: str = ""):
-    philips.select(host, port, api_version, name)
+async def philips_select(host: str, name: str = ""):
+    philips.select(host, name)
     try:
         _save_philips_config()
     except Exception as e:
@@ -409,6 +411,7 @@ async def _poll_loop():
         await kasa.discover()
         await roku.discover()
         await aidot.start()
+        await philips.startup()
     except Exception as e:
         logger.error(f"Initial discovery error: {e}")
 

@@ -5,6 +5,8 @@ __pycache__/
 .env
 config.yaml
 snapshot.json
+philips_cert.pem
+philips_key.pem
 *.egg-info/
 dist/
 build/

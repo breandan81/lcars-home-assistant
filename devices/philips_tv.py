@@ -1,32 +1,41 @@
 """
-Philips JointSpace REST API (port 1925).
-
-Older models (API v1-v5): no auth required.
-Newer Android TVs (API v6+): HTTP Digest auth; requires one-time PIN pairing.
+Philips Android TV — control via Android TV Remote protocol (port 6466/6467).
+Works with Funai-made North American Philips TVs and any other Android TV.
 """
 
 import asyncio
-import base64
-import hashlib
-import hmac
 import logging
 import socket
-import time
+from pathlib import Path
 from typing import List, Optional
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-_DEVICE_INFO = {
-    "device_name": "LCARS Home Control",
-    "device_os": "Android",
-    "app_id": "lcars.home",
-    "app_name": "LCARS Home Control",
-    "type": "native",
-}
-# Known HMAC-SHA1 secret used by Philips JointSpace v6 pairing
-_SECRET = base64.b64decode("ZmVay1EQVFOaZhwQ4Ku6RFdD0ANd+Ybv5LCaH4WdrI==")
+_CERT_FILE = "philips_cert.pem"
+_KEY_FILE  = "philips_key.pem"
+_CLIENT_NAME = "LCARS Home Control"
+
+
+def _probe_android_tv(host: str) -> Optional[dict]:
+    """Check if host is an Android TV by probing port 6466 and reading the DIAL name."""
+    try:
+        sock = socket.create_connection((host, 6466), timeout=1.5)
+        sock.close()
+    except OSError:
+        return None
+    name = f"Android TV ({host})"
+    try:
+        r = httpx.get(f"http://{host}:8008/ssdp/device-desc.xml", timeout=1.5)
+        if r.status_code == 200:
+            import re
+            m = re.search(r"<friendlyName>([^<]+)</friendlyName>", r.text)
+            if m:
+                name = m.group(1)
+    except Exception:
+        pass
+    return {"host": host, "name": name}
 
 
 def _ssdp_candidates(timeout: float) -> List[str]:
@@ -55,145 +64,126 @@ def _ssdp_candidates(timeout: float) -> List[str]:
     return list(seen)
 
 
-def _probe_host(host: str) -> Optional[dict]:
-    for api_v in (6, 1):
-        try:
-            r = httpx.get(f"http://{host}:1925/{api_v}/system", timeout=1.0)
-            if r.status_code == 200:
-                data = r.json()
-                name = data.get("name") or f"Philips TV ({host})"
-                return {"host": host, "port": 1925, "api_version": api_v, "name": name}
-        except Exception:
-            pass
-    return None
-
-
 class PhilipsTVController:
     def __init__(self, config: dict):
         self.host = config.get("host", "")
-        self.port = int(config.get("port", 1925))
-        self.api_version = int(config.get("api_version", 6))
-        self.username: Optional[str] = config.get("username") or None
-        self.password: Optional[str] = config.get("password") or None
         self.name = config.get("name", "Philips TV")
-        self._pair_state: dict = {}
+        self._atv = None          # AndroidTVRemote instance (persistent connection)
+        self._connected = False
+        self._pairing_atv = None  # held open between pair_request and pair_grant
 
-    @property
-    def _base(self) -> str:
-        return f"http://{self.host}:{self.port}/{self.api_version}"
-
-    def _auth(self) -> Optional[httpx.DigestAuth]:
-        if self.username and self.password:
-            return httpx.DigestAuth(self.username, self.password)
-        return None
-
-    def is_configured(self) -> bool:
-        return bool(self.host)
+    def _is_paired(self) -> bool:
+        return Path(_CERT_FILE).exists() and Path(_KEY_FILE).exists()
 
     def get_status(self) -> dict:
         return {
             "host": self.host,
-            "port": self.port,
-            "api_version": self.api_version,
             "name": self.name,
-            "paired": bool(self.username),
-            "needs_auth": self.api_version >= 6,
+            "paired": self._is_paired(),
+            "connected": self._connected,
         }
 
-    def select(self, host: str, port: int = 1925, api_version: int = 6, name: str = "") -> None:
+    def select(self, host: str, name: str = "") -> None:
         if host != self.host:
-            self.username = None
-            self.password = None
+            self._disconnect()
         self.host = host
-        self.port = port
-        self.api_version = api_version
         if name:
             self.name = name
+
+    def _disconnect(self):
+        if self._atv:
+            self._atv.disconnect()
+            self._atv = None
+        self._connected = False
+
+    async def startup(self):
+        """Auto-connect on server start if already configured and paired."""
+        if self.host and self._is_paired():
+            await self._connect()
+
+    async def _connect(self):
+        from androidtvremote2 import AndroidTVRemote, CannotConnect, InvalidAuth
+        self._disconnect()
+        atv = AndroidTVRemote(_CLIENT_NAME, _CERT_FILE, _KEY_FILE, self.host)
+        await atv.async_generate_cert_if_missing()
+
+        def on_available(available: bool):
+            self._connected = available
+
+        atv.add_is_available_updated_callback(on_available)
+        try:
+            await atv.async_connect()
+            self._atv = atv
+            self._connected = True
+            atv.keep_reconnecting()
+            logger.info(f"Philips TV connected: {self.host}")
+        except (CannotConnect, InvalidAuth) as e:
+            logger.warning(f"Philips TV connect failed: {e}")
+            atv.disconnect()
 
     async def discover(self, timeout: float = 5.0) -> List[dict]:
         loop = asyncio.get_event_loop()
         candidates = await loop.run_in_executor(None, _ssdp_candidates, timeout / 2)
         results = await asyncio.gather(*[
-            loop.run_in_executor(None, _probe_host, host)
+            loop.run_in_executor(None, _probe_android_tv, host)
             for host in candidates
         ])
         return [r for r in results if r is not None]
 
-    async def send_key(self, key: str) -> dict:
-        if not self.host:
-            return {"error": "Philips TV not configured"}
-        try:
-            async with httpx.AsyncClient() as client:
-                r = await client.post(
-                    f"{self._base}/input/key",
-                    json={"key": key},
-                    auth=self._auth(),
-                    timeout=5,
-                )
-                if r.status_code in (200, 204):
-                    return {"sent": True, "key": key}
-                return {"error": f"HTTP {r.status_code}"}
-        except Exception as e:
-            logger.error(f"Philips send_key {key}: {e}")
-            return {"error": str(e)}
-
     async def pair_request(self) -> dict:
-        """Start pairing — TV will display a PIN code."""
         if not self.host:
-            return {"error": "Philips TV not configured"}
+            return {"error": "TV not configured"}
+        from androidtvremote2 import AndroidTVRemote, CannotConnect
+        if self._pairing_atv:
+            self._pairing_atv.disconnect()
+        atv = AndroidTVRemote(_CLIENT_NAME, _CERT_FILE, _KEY_FILE, self.host)
+        await atv.async_generate_cert_if_missing()
         try:
-            async with httpx.AsyncClient() as client:
-                r = await client.post(
-                    f"{self._base}/pair/request",
-                    json={"device": _DEVICE_INFO, "scope": ["read", "write", "control"]},
-                    timeout=5,
-                )
-                data = r.json()
-            if data.get("error_id") not in (None, "SUCCESS"):
-                return {"error": data["error_id"]}
-            self._pair_state = {
-                "device_id": data["device_id"],
-                "auth_key": data["auth_key"],
-            }
-            return {"ok": True, "message": "PIN is now shown on your TV"}
+            await atv.async_start_pairing()
+            self._pairing_atv = atv
+            return {"ok": True}
+        except CannotConnect as e:
+            atv.disconnect()
+            return {"error": f"Cannot connect to TV: {e}"}
         except Exception as e:
+            atv.disconnect()
             logger.error(f"Philips pair_request: {e}")
             return {"error": str(e)}
 
     async def pair_grant(self, pin: str) -> dict:
-        """Complete pairing with the PIN shown on the TV."""
-        if not self._pair_state:
+        if not self._pairing_atv:
             return {"error": "No pairing in progress — click Start Pairing first"}
-        device_id = self._pair_state["device_id"]
-        auth_key = self._pair_state["auth_key"]
-        ts = str(int(time.time()))
-        sig = base64.b64encode(
-            hmac.new(_SECRET, (ts + auth_key).encode(), hashlib.sha1).digest()
-        ).decode()
-        payload = {
-            "auth": {
-                "auth_AppId": "1",
-                "pin": pin,
-                "auth_timestamp": ts,
-                "auth_signature": sig,
-            },
-            "device": _DEVICE_INFO,
-        }
+        from androidtvremote2 import ConnectionClosed, InvalidAuth
         try:
-            async with httpx.AsyncClient() as client:
-                r = await client.post(
-                    f"{self._base}/pair/grant",
-                    json=payload,
-                    auth=httpx.DigestAuth(device_id, pin),
-                    timeout=5,
-                )
-                data = r.json() if r.content else {}
-            if r.status_code not in (200, 204) and data.get("error_id") not in (None, "SUCCESS"):
-                return {"error": data.get("error_id", f"HTTP {r.status_code}")}
-            self.username = device_id
-            self.password = auth_key
-            self._pair_state = {}
-            return {"paired": True, "username": device_id, "password": auth_key}
+            await self._pairing_atv.async_finish_pairing(pin)
+            self._pairing_atv.disconnect()
+            self._pairing_atv = None
+            await self._connect()
+            return {"paired": True}
+        except InvalidAuth:
+            return {"error": "Wrong PIN — try pairing again"}
+        except ConnectionClosed:
+            return {"error": "Connection lost — try pairing again"}
         except Exception as e:
             logger.error(f"Philips pair_grant: {e}")
+            return {"error": str(e)}
+
+    async def send_key(self, key: str) -> dict:
+        if not self.host:
+            return {"error": "TV not configured"}
+        if not self._is_paired():
+            return {"error": "TV not paired — complete pairing first"}
+        if not self._atv or not self._connected:
+            await self._connect()
+        if not self._atv:
+            return {"error": "TV unreachable"}
+        from androidtvremote2 import ConnectionClosed
+        try:
+            self._atv.send_key_command(key)
+            return {"sent": True, "key": key}
+        except ConnectionClosed:
+            self._connected = False
+            return {"error": "Connection lost — TV may be off"}
+        except Exception as e:
+            logger.error(f"Philips send_key {key}: {e}")
             return {"error": str(e)}

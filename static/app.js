@@ -781,13 +781,12 @@ function renderPhilipsStatus(d) {
   const info = document.getElementById('philips-info');
   const table = document.getElementById('philips-table');
   if (info) info.textContent = d.name || '';
-  const paired = d.paired || !d.needs_auth;
-  setIndicator('philips-indicator', paired ? 'on' : 'warn');
+  setIndicator('philips-indicator', d.connected ? 'on' : d.paired ? 'warn' : 'err');
   if (table) {
     table.innerHTML = [
       ['Host',   d.host || '--'],
-      ['API',    `v${d.api_version}`],
-      ['Status', d.needs_auth ? (d.paired ? 'Paired' : 'Not paired') : 'No auth required'],
+      ['Paired', d.paired ? 'Yes' : 'No'],
+      ['Status', d.connected ? 'Connected' : d.paired ? 'Disconnected' : 'Not paired'],
     ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
   }
 }
@@ -806,7 +805,7 @@ async function philipsDiscover() {
   btn.textContent = '↺ Discover';
 
   if (!Array.isArray(devices) || devices.length === 0) {
-    el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">No Philips TVs found — enter IP in config.yaml manually.</span>';
+    el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">No Philips TVs found — enter the IP address manually above.</span>';
     toast('No Philips TVs found', 'var(--yellow)');
     return;
   }
@@ -814,22 +813,43 @@ async function philipsDiscover() {
   toast(`Found ${devices.length} TV(s)`, 'var(--green)');
   el.innerHTML = devices.map(d => `
     <div class="ctrl-row" style="margin-top:4px">
-      <span style="font-size:0.7rem;color:var(--lt-blue);flex:1">${esc(d.name)} &nbsp;·&nbsp; ${esc(d.host)} &nbsp;·&nbsp; API v${d.api_version}</span>
+      <span style="font-size:0.7rem;color:var(--lt-blue);flex:1">${esc(d.name)} &nbsp;·&nbsp; ${esc(d.host)}</span>
       <button class="lbtn lilac" style="font-size:0.65rem"
-        onclick="philipsSelect('${esc(d.host)}', ${d.port}, ${d.api_version}, '${esc(d.name)}')">Select</button>
+        onclick="philipsSelect('${esc(d.host)}', '${esc(d.name)}')">Select</button>
     </div>
   `).join('');
 }
 
-async function philipsSelect(host, port, apiVersion, name) {
-  const r = await api('POST', '/api/philips/select', { host, port, api_version: apiVersion, name });
+async function philipsProbeManual() {
+  const input = document.getElementById('philips-manual-ip');
+  const host = input.value.trim();
+  if (!host) return;
+  const el = document.getElementById('philips-discovered');
+  el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">Connecting…</span>';
+  const r = await api('GET', '/api/philips/probe', { host });
+  if (r.error || r.detail) {
+    el.innerHTML = `<span style="color:var(--red);font-size:0.75rem">Not found: ${esc(r.detail || r.error)}</span>`;
+    toast('No Philips TV at that IP', 'var(--red)');
+    return;
+  }
+  toast(`Found: ${r.name}`, 'var(--green)');
+  el.innerHTML = `
+    <div class="ctrl-row" style="margin-top:4px">
+      <span style="font-size:0.7rem;color:var(--lt-blue);flex:1">${esc(r.name)} &nbsp;·&nbsp; ${esc(r.host)}</span>
+      <button class="lbtn lilac" style="font-size:0.65rem"
+        onclick="philipsSelect('${esc(r.host)}', '${esc(r.name)}')">Select</button>
+    </div>`;
+}
+
+async function philipsSelect(host, name) {
+  const r = await api('POST', '/api/philips/select', { host, name });
   document.getElementById('philips-discovered').innerHTML = '';
   if (!r.error) {
     renderPhilipsStatus(r);
-    toast(`Selected: ${name}`, 'var(--green)');
-    const msg = r.needs_auth
-      ? 'TV selected — click Start Pairing to authorize.'
-      : 'TV selected — no pairing needed, remote is ready.';
+    toast(`Selected: ${name || host}`, 'var(--green)');
+    const msg = r.paired
+      ? 'TV selected — already paired, connecting…'
+      : 'TV selected — click Start Pairing to authorize.';
     document.getElementById('philips-pair-status').innerHTML =
       `<span style="color:var(--yellow)">${msg}</span>`;
   } else {
