@@ -152,10 +152,21 @@ html, body {
   width: var(--sidebar);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 24px; /* offset for elbow overlap */
-  overflow: hidden;
 }
+
+.nav-scroll {
+  flex: 1;
+  min-height: 0;       /* lets flex child shrink below content size so overflow works */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 24px;   /* offset for elbow-tl overlap */
+  padding-bottom: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.nav-scroll::-webkit-scrollbar { display: none; }
 
 .nav-btn {
   flex-shrink: 0;
@@ -192,7 +203,6 @@ html, body {
 .nav-btn.lilac   { background: var(--lilac);   color: #000; }
 .nav-btn.magenta { background: var(--magenta); color: #000; }
 
-.nav-spacer { flex: 1; }
 
 .lcars-elbow-bl {
   flex-shrink: 0;
@@ -823,7 +833,7 @@ select option { background: #0d0d1f; }
   }
   .lcars-sidebar::-webkit-scrollbar { display: none; }
 
-  .nav-spacer { display: none; }
+  .nav-scroll { display: contents; }
   .lcars-elbow-bl { display: none; }
 
   .nav-btn {
