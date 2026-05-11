@@ -734,7 +734,7 @@ async function rokuDiscover() {
     const name = d.friendly_device_name || d.user_device_name || 'Roku';
     document.getElementById('roku-info').textContent = `${name} · ${d.software_version || ''}`;
     toast(`Roku found: ${name}`);
-    rokuSelect(d.base_url);
+    await rokuSelect(d.base_url);
     rokuLoadApps();
   } else {
     // Multiple Rokus on network — show selection buttons

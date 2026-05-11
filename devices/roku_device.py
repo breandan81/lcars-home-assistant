@@ -82,8 +82,8 @@ class RokuController:
                         info = self._parse_device_info(resp.text)
                         info["base_url"] = url
                         devices.append(info)
-                        # Auto-set first discovered device
-                        if not self._base_url:
+                        # Always prefer live SSDP result over stale saved config (handles IP changes)
+                        if len(devices) == 1:
                             self._base_url = url
             except Exception as e:
                 logger.warning(f"Roku probe failed for {url}: {e}")
