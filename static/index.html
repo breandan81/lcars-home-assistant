@@ -43,7 +43,6 @@
         <button class="nav-btn red"           data-section="display">▣ Display</button>
         <button class="nav-btn purple"        data-section="audio">♪ Audio</button>
         <button class="nav-btn lt-blue"       data-section="roku">▶ Roku</button>
-        <button class="nav-btn lilac"         data-section="philips">▣ Philips</button>
         <button class="nav-btn tan"           data-section="samsung">▣ Samsung</button>
         <button class="nav-btn gold"          data-section="scenes">★ Scenes</button>
         <button class="nav-btn green"         data-section="learn">◎ Learn</button>
@@ -456,88 +455,6 @@
         </div>
       </div>
 
-      <!-- ═══ PHILIPS TV ════════════════════════════════════════════════════ -->
-      <div class="section" id="section-philips">
-
-        <!-- Connection / Pairing -->
-        <div class="panel">
-          <div class="panel-header lilac">
-            <span class="indicator" id="philips-indicator"></span>
-            Philips TV
-            <span style="margin-left:auto;font-size:0.7rem;font-weight:300" id="philips-info"></span>
-          </div>
-          <div class="panel-body">
-            <div class="ctrl-row">
-              <button class="lbtn lilac" onclick="philipsDiscover()" id="philips-discover-btn">↺ Discover</button>
-              <button class="lbtn lilac" onclick="philipsPairRequest()" id="philips-pair-btn">⇄ Start Pairing</button>
-              <button class="lbtn dim"   onclick="philipsConnect()">⇌ Reconnect</button>
-            </div>
-            <div class="ctrl-row" style="margin-top:8px">
-              <input id="philips-manual-ip" type="text" placeholder="TV IP address (e.g. 192.168.1.60)"
-                     style="flex:1;background:#111;color:#eee;border:1px solid #555;padding:4px 8px;font-family:inherit;font-size:0.8rem"
-                     onkeydown="if(event.key==='Enter')philipsProbeManual()">
-              <button class="lbtn lilac" onclick="philipsProbeManual()">Connect</button>
-            </div>
-            <div id="philips-discovered" style="margin-top:8px"></div>
-            <!-- PIN entry — shown after pair request -->
-            <div id="philips-pin-row" style="display:none;margin-top:10px">
-              <div style="font-size:0.75rem;color:var(--yellow);margin-bottom:6px">
-                Enter the PIN shown on your TV:
-              </div>
-              <div class="ctrl-row">
-                <input type="text" id="philips-pin" placeholder="e.g. 1234" maxlength="8"
-                       style="width:120px;font-size:1rem;letter-spacing:0.2em;text-align:center"
-                       class="learn-text-input">
-                <button class="lbtn green" onclick="philipsPairGrant()">✓ Submit PIN</button>
-              </div>
-            </div>
-            <div id="philips-pair-status" style="margin-top:8px;font-size:0.75rem"></div>
-            <table class="data-table" id="philips-table" style="margin-top:10px"></table>
-          </div>
-        </div>
-
-        <!-- Remote -->
-        <div class="panel">
-          <div class="panel-header lilac">Remote</div>
-          <div class="panel-body">
-            <div class="ctrl-row">
-              <button class="lbtn green power-btn" onclick="philipsKey('KEYCODE_POWER')" title="Power Toggle">⏻</button>
-              <button class="lbtn dim"             onclick="philipsKey('KEYCODE_TV_INPUT')">Source</button>
-              <button class="lbtn dim"             onclick="philipsKey('KEYCODE_HOME')">⌂ Home</button>
-              <button class="lbtn dim"             onclick="philipsKey('KEYCODE_APP_SWITCH')">Recents</button>
-            </div>
-            <div class="dpad" style="margin:12px 0">
-              <button class="lbtn blue dpad-up"       onclick="philipsKey('KEYCODE_DPAD_UP')">▲</button>
-              <button class="lbtn blue dpad-left"     onclick="philipsKey('KEYCODE_DPAD_LEFT')">◀</button>
-              <button class="lbtn orange dpad-center" onclick="philipsKey('KEYCODE_DPAD_CENTER')">OK</button>
-              <button class="lbtn blue dpad-right"    onclick="philipsKey('KEYCODE_DPAD_RIGHT')">▶</button>
-              <button class="lbtn blue dpad-down"     onclick="philipsKey('KEYCODE_DPAD_DOWN')">▼</button>
-            </div>
-            <div class="ctrl-row">
-              <button class="lbtn dim" onclick="philipsKey('KEYCODE_BACK')">← Back</button>
-              <button class="lbtn dim" onclick="philipsKey('KEYCODE_SETTINGS')">Settings</button>
-              <button class="lbtn dim" onclick="philipsKey('KEYCODE_INFO')">Info</button>
-            </div>
-            <div class="ctrl-row" style="margin-top:8px">
-              <span class="ctrl-label">Volume</span>
-              <button class="lbtn orange" onclick="philipsKey('KEYCODE_VOLUME_UP')">＋</button>
-              <button class="lbtn orange" onclick="philipsKey('KEYCODE_VOLUME_DOWN')">－</button>
-              <button class="lbtn dim"    onclick="philipsKey('KEYCODE_VOLUME_MUTE')">Mute</button>
-            </div>
-            <div class="ctrl-row">
-              <span class="ctrl-label">Channel</span>
-              <button class="lbtn dim" onclick="philipsKey('KEYCODE_CHANNEL_UP')">＋</button>
-              <button class="lbtn dim" onclick="philipsKey('KEYCODE_CHANNEL_DOWN')">－</button>
-            </div>
-            <div class="ctrl-row">
-              <span class="ctrl-label">Playback</span>
-              <button class="lbtn dim"    onclick="philipsKey('KEYCODE_MEDIA_REWIND')">⏪</button>
-              <button class="lbtn orange" onclick="philipsKey('KEYCODE_MEDIA_PLAY_PAUSE')">⏯</button>
-              <button class="lbtn dim"    onclick="philipsKey('KEYCODE_MEDIA_FAST_FORWARD')">⏩</button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- ═══ SAMSUNG TV ════════════════════════════════════════════════════ -->
       <div class="section" id="section-samsung">

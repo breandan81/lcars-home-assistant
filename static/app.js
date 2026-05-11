@@ -70,7 +70,7 @@ function showSection(name) {
   const btn = document.querySelector(`.nav-btn[data-section="${name}"]`);
   if (btn) {
     btn.classList.add('active');
-    btn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    btn.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
   }
   const sec = document.getElementById('section-' + name);
   if (sec) {
@@ -840,166 +840,6 @@ async function movieMode() {
   }).join('');
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// PHILIPS TV
-// ════════════════════════════════════════════════════════════════════════════
-
-function renderPhilipsStatus(d) {
-  const info = document.getElementById('philips-info');
-  const table = document.getElementById('philips-table');
-  if (info) info.textContent = d.name || '';
-  setIndicator('philips-indicator', d.connected ? 'on' : (d.paired && !d.needs_reauth) ? 'warn' : 'err');
-  const statusText = d.connected ? 'Connected'
-    : d.needs_reauth ? 'Cert rejected — re-pair needed'
-    : d.paired ? 'Disconnected (TV off?)'
-    : 'Not paired';
-  if (table) {
-    table.innerHTML = [
-      ['Host',   d.host || '--'],
-      ['Status', statusText],
-    ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
-  }
-  if (d.needs_reauth) {
-    document.getElementById('philips-pair-status').innerHTML =
-      '<span style="color:var(--red)">⚠ TV rejected the cert — click Start Pairing to re-pair.</span>';
-  }
-}
-
-async function philipsDiscover() {
-  const btn = document.getElementById('philips-discover-btn');
-  const el  = document.getElementById('philips-discovered');
-  btn.disabled = true;
-  btn.textContent = '⏳ Scanning…';
-  el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">Searching (5 s)…</span>';
-  toast('Scanning for Philips TVs…');
-
-  const devices = await api('GET', '/api/philips/discover');
-
-  btn.disabled = false;
-  btn.textContent = '↺ Discover';
-
-  if (!Array.isArray(devices) || devices.length === 0) {
-    el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">No Philips TVs found — enter the IP address manually above.</span>';
-    toast('No Philips TVs found', 'var(--yellow)');
-    return;
-  }
-
-  toast(`Found ${devices.length} TV(s)`, 'var(--green)');
-  el.innerHTML = devices.map(d => `
-    <div class="ctrl-row" style="margin-top:4px">
-      <span style="font-size:0.7rem;color:var(--lt-blue);flex:1">${esc(d.name)} &nbsp;·&nbsp; ${esc(d.host)}</span>
-      <button class="lbtn lilac" style="font-size:0.65rem"
-        onclick="philipsSelect('${esc(d.host)}', '${esc(d.name)}')">Select</button>
-    </div>
-  `).join('');
-}
-
-async function philipsProbeManual() {
-  const input = document.getElementById('philips-manual-ip');
-  const host = input.value.trim();
-  if (!host) return;
-  const el = document.getElementById('philips-discovered');
-  el.innerHTML = '<span style="color:var(--dim);font-size:0.75rem">Connecting…</span>';
-  const r = await api('GET', '/api/philips/probe', { host });
-  if (r.error || r.detail) {
-    el.innerHTML = `<span style="color:var(--red);font-size:0.75rem">Not found: ${esc(r.detail || r.error)}</span>`;
-    toast('No Philips TV at that IP', 'var(--red)');
-    return;
-  }
-  toast(`Found: ${r.name}`, 'var(--green)');
-  el.innerHTML = `
-    <div class="ctrl-row" style="margin-top:4px">
-      <span style="font-size:0.7rem;color:var(--lt-blue);flex:1">${esc(r.name)} &nbsp;·&nbsp; ${esc(r.host)}</span>
-      <button class="lbtn lilac" style="font-size:0.65rem"
-        onclick="philipsSelect('${esc(r.host)}', '${esc(r.name)}')">Select</button>
-    </div>`;
-}
-
-async function philipsSelect(host, name) {
-  const r = await api('POST', '/api/philips/select', { host, name });
-  document.getElementById('philips-discovered').innerHTML = '';
-  if (!r.error) {
-    renderPhilipsStatus(r);
-    toast(`Selected: ${name || host}`, 'var(--green)');
-    const msg = r.paired
-      ? 'TV selected — already paired, connecting…'
-      : 'TV selected — click Start Pairing to authorize.';
-    document.getElementById('philips-pair-status').innerHTML =
-      `<span style="color:var(--yellow)">${msg}</span>`;
-  } else {
-    toast('Select failed: ' + r.error, 'var(--red)');
-  }
-}
-
-async function philipsConnect() {
-  setAction('Philips TV: connecting…');
-  const r = await api('POST', '/api/philips/connect');
-  if (r.error || r.detail) {
-    toast('Connect failed: ' + (r.detail || r.error), 'var(--red)');
-    return;
-  }
-  renderPhilipsStatus(r);
-  const msg = r.connected ? 'Philips TV connected'
-    : r.needs_reauth ? 'TV rejected cert — click Start Pairing'
-    : 'TV unreachable — is it on?';
-  toast(msg, r.connected ? 'var(--green)' : 'var(--yellow)');
-}
-
-async function philipsPairRequest() {
-  const btn = document.getElementById('philips-pair-btn');
-  const statusEl = document.getElementById('philips-pair-status');
-  btn.disabled = true;
-  btn.textContent = '⏳ Requesting…';
-  statusEl.innerHTML = '';
-
-  const r = await api('POST', '/api/philips/pair/request');
-
-  btn.disabled = false;
-  btn.textContent = '⇄ Start Pairing';
-
-  if (r.ok) {
-    statusEl.innerHTML = '<span style="color:var(--yellow)">A PIN is now shown on your TV — enter it below.</span>';
-    document.getElementById('philips-pin-row').style.display = '';
-    document.getElementById('philips-pin').focus();
-    toast('Enter the PIN shown on your TV', 'var(--yellow)');
-  } else {
-    statusEl.innerHTML = `<span style="color:var(--red)">⚠ ${esc(r.error || 'Failed')}</span>`;
-    toast('Pair request failed: ' + (r.error || 'unknown'), 'var(--red)');
-  }
-}
-
-async function philipsPairGrant() {
-  const pin = document.getElementById('philips-pin').value.trim();
-  if (!pin) { toast('Enter the PIN first', 'var(--yellow)'); return; }
-
-  const statusEl = document.getElementById('philips-pair-status');
-  statusEl.innerHTML = '<span style="color:var(--yellow)">Verifying PIN…</span>';
-
-  const r = await api('POST', '/api/philips/pair/grant', { pin });
-
-  if (r.paired) {
-    document.getElementById('philips-pin-row').style.display = 'none';
-    document.getElementById('philips-pin').value = '';
-    statusEl.innerHTML = '<span style="color:var(--green)">✓ Paired successfully</span>';
-    toast('Philips TV paired!', 'var(--green)');
-    setIndicator('philips-indicator', 'on');
-    setAction('Philips TV: paired');
-  } else {
-    statusEl.innerHTML = `<span style="color:var(--red)">⚠ ${esc(r.error || 'Pairing failed — wrong PIN?')}</span>`;
-    toast('PIN rejected: ' + (r.error || 'wrong PIN?'), 'var(--red)');
-  }
-}
-
-async function philipsKey(key) {
-  setAction(`Philips: ${key}`);
-  const r = await api('POST', `/api/philips/keypress/${key}`);
-  if (r.error) {
-    toast('Philips: ' + r.error, 'var(--red)');
-    setIndicator('philips-indicator', 'err');
-  } else {
-    toast(`Sent: ${key}`, 'var(--green)');
-    setIndicator('philips-indicator', 'on');
-  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1174,14 +1014,13 @@ function rgbToHsv(r, g, b) {
   connectWS();
 
   // Load initial data
-  const [kasaData, tuyaData, groupData, ecoData, pingData, samsungData, philipsData] = await Promise.all([
+  const [kasaData, tuyaData, groupData, ecoData, pingData, samsungData] = await Promise.all([
     api('GET', '/api/kasa/devices'),
     api('GET', '/api/lighting/devices'),
     api('GET', '/api/lighting/groups'),
     api('GET', '/api/climate/status'),
     api('GET', '/api/ir/ping'),
     api('GET', '/api/samsung/status'),
-    api('GET', '/api/philips/status'),
   ]);
 
   if (Array.isArray(kasaData))  { state.kasa = kasaData;     renderKasa(); }
@@ -1193,7 +1032,6 @@ function rgbToHsv(r, g, b) {
   if (!pingData?.online) toast('Arduino offline — IR/RF unavailable', 'var(--red)');
 
   if (samsungData && !samsungData.error) renderSamsungStatus(samsungData);
-  if (philipsData && !philipsData.error) renderPhilipsStatus(philipsData);
 
   rokuEnsureConnected();
 })();
