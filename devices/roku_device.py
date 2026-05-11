@@ -4,6 +4,7 @@ import socket
 import struct
 import xml.etree.ElementTree as ET
 from typing import List, Optional
+from urllib.parse import urlparse
 
 import httpx
 
@@ -63,6 +64,12 @@ class RokuController:
         self._base_url: Optional[str] = None
         if config.get("host"):
             self._base_url = f"http://{config['host']}:{ROKU_ECP_PORT}"
+
+    def select(self, url: str) -> str:
+        """Pin a specific Roku by its ECP base URL. Returns the host."""
+        url = url.rstrip('/') + '/'
+        self._base_url = url
+        return urlparse(url).hostname or url
 
     async def discover(self) -> List[dict]:
         urls = await asyncio.get_event_loop().run_in_executor(None, _ssdp_discover)

@@ -213,10 +213,26 @@ async def ir_save_code(device_id: str, command_name: str, code: str):
 
 # ── Roku ─────────────────────────────────────────────────────────────────────
 
+class RokuSelectRequest(BaseModel):
+    url: str
+
 @app.get("/api/roku/discover")
 async def roku_discover():
     devices = await roku.discover()
     return devices
+
+@app.post("/api/roku/select")
+async def roku_select(req: RokuSelectRequest):
+    host = roku.select(req.url)
+    if not config.get("roku"):
+        config["roku"] = {}
+    config["roku"]["host"] = host
+    try:
+        with open(_config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    except Exception as e:
+        return {"host": host, "error": f"Config write failed: {e}"}
+    return {"host": host}
 
 @app.get("/api/roku/status")
 async def roku_status():

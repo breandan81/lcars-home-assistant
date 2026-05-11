@@ -78,6 +78,7 @@ function showSection(name) {
     document.getElementById('content-area').scrollTop = 0;
   }
   if (name === 'learn') learnInit();
+  if (name === 'ready-room') rokuEnsureConnected();
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -721,18 +722,56 @@ async function learnSave() {
 async function rokuDiscover() {
   toast('Scanning for Roku…');
   const data = await api('GET', '/api/roku/discover');
-  if (data.length) {
-    setIndicator('roku-indicator', 'on');
-    setIndicator('rr-roku-indicator', 'on');
-    const d = data[0];
-    document.getElementById('roku-info').textContent =
-      `${d.friendly_device_name || d.user_device_name || 'Roku'} · ${d.software_version || ''}`;
-    toast(`Roku found: ${d.friendly_device_name || 'OK'}`);
-    rokuLoadApps();
-  } else {
+  if (!data.length) {
     toast('No Roku found on network', 'var(--red)');
     setIndicator('roku-indicator', 'err');
+    return;
   }
+  setIndicator('roku-indicator', 'on');
+  setIndicator('rr-roku-indicator', 'on');
+  const d = data[0];
+  if (data.length === 1) {
+    const name = d.friendly_device_name || d.user_device_name || 'Roku';
+    document.getElementById('roku-info').textContent = `${name} · ${d.software_version || ''}`;
+    toast(`Roku found: ${name}`);
+    rokuSelect(d.base_url);
+    rokuLoadApps();
+  } else {
+    // Multiple Rokus on network — show selection buttons
+    const btns = data.map(r =>
+      `<button class="lbtn dim" style="font-size:0.65rem;padding:2px 6px"
+        onclick="rokuPick('${esc(r.base_url)}',
+                          '${esc(r.friendly_device_name || r.user_device_name || r.base_url)}')"
+      >${esc(r.friendly_device_name || r.user_device_name || r.base_url)}</button>`
+    ).join(' ');
+    document.getElementById('roku-info').innerHTML = `Pick: ${btns}`;
+    toast(`Found ${data.length} Rokus — pick one`, 'var(--yellow)');
+  }
+}
+
+async function rokuPick(url, name) {
+  await rokuSelect(url);
+  document.getElementById('roku-info').textContent = name;
+  rokuLoadApps();
+}
+
+async function rokuSelect(url) {
+  await api('POST', '/api/roku/select', {url});
+}
+
+async function rokuEnsureConnected() {
+  if (state.roku.apps.length > 0) return;
+  const apps = await api('GET', '/api/roku/apps');
+  if (!Array.isArray(apps) || apps.length === 0) { rokuDiscover(); return; }
+  state.roku.apps = apps;
+  const html = apps.map(a =>
+    `<button class="app-btn" onclick="rokuLaunch('${esc(a.id)}', '${esc(a.name)}')">${esc(a.name)}</button>`
+  ).join('');
+  document.getElementById('roku-apps').innerHTML = html;
+  const rrApps = document.getElementById('rr-roku-apps');
+  if (rrApps) rrApps.innerHTML = html;
+  setIndicator('roku-indicator', 'on');
+  setIndicator('rr-roku-indicator', 'on');
 }
 
 async function rokuKey(key) {
