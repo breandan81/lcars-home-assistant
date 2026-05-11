@@ -153,6 +153,7 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  isolation: isolate; /* stacking context so buttons paint above the header's positioned cap */
   /* Orange strip runs the full sidebar height; buttons paint over it */
   background: linear-gradient(to right, var(--orange) 36px, var(--bg) 36px);
 }
