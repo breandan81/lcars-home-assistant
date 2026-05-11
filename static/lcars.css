@@ -170,7 +170,7 @@ html, body {
 
 .nav-btn {
   flex-shrink: 0;
-  height: 40px;
+  height: 36px;
   border: none;
   outline: none;
   cursor: pointer;
@@ -208,7 +208,7 @@ html, body {
   flex-shrink: 0;
   height: 52px;
   position: relative;
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .lcars-elbow-bl .cap {
@@ -216,12 +216,12 @@ html, body {
   inset: 0;
   background: var(--orange);
   border-bottom-left-radius: var(--radius);
-  top: calc(-1 * var(--gap) - 4px);
+  top: 0;
 }
 
 .lcars-elbow-bl .cut {
   position: absolute;
-  top: calc(-1 * var(--gap) - 4px);
+  top: 0;
   right: 0;
   width: calc(var(--sidebar) - 36px);
   height: 28px;
@@ -776,7 +776,6 @@ select option { background: #0d0d1f; }
   .nav-btn {
     font-size: 0.75rem;
     padding-left: 10px;
-    height: 36px;
   }
 
   /* More usable touch targets */
