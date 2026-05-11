@@ -70,7 +70,15 @@ function showSection(name) {
   const btn = document.querySelector(`.nav-btn[data-section="${name}"]`);
   if (btn) {
     btn.classList.add('active');
-    btn.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+    // Scroll only nav-scroll, not the sidebar (overflow:hidden makes sidebar a scroll
+    // container too, so scrollIntoView would scroll it and clip the first button).
+    const navScroll = btn.closest('.nav-scroll');
+    if (navScroll) {
+      const sr = navScroll.getBoundingClientRect();
+      const br = btn.getBoundingClientRect();
+      const delta = (br.top + br.height / 2) - (sr.top + sr.height / 2);
+      navScroll.scrollBy({ top: delta, behavior: 'smooth' });
+    }
   }
   const sec = document.getElementById('section-' + name);
   if (sec) {
