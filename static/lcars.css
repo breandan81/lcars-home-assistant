@@ -11,6 +11,7 @@
   --green:   #33CC99;
   --gold:    #FFB700;
   --lilac:   #CC88CC;
+  --magenta: #FF44FF;
   --bg:      #000000;
   --panel:   #0a0a1a;
   --text:    #FF9900;
@@ -188,7 +189,8 @@ html, body {
 .nav-btn.lt-blue { background: var(--lt-blue); }
 .nav-btn.gold    { background: var(--gold); color: #000; }
 .nav-btn.tan     { background: var(--tan);  color: #000; }
-.nav-btn.lilac   { background: var(--lilac); color: #000; }
+.nav-btn.lilac   { background: var(--lilac);   color: #000; }
+.nav-btn.magenta { background: var(--magenta); color: #000; }
 
 .nav-spacer { flex: 1; }
 

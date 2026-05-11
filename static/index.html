@@ -35,7 +35,8 @@
 
     <!-- SIDEBAR NAV -->
     <nav class="lcars-sidebar">
-      <button class="nav-btn orange active" data-section="power">⏻ Power</button>
+      <button class="nav-btn magenta active" data-section="ready-room">◈ Ready Room</button>
+      <button class="nav-btn orange" data-section="power">⏻ Power</button>
       <button class="nav-btn blue"          data-section="lighting">◈ Lighting</button>
       <button class="nav-btn yellow"        data-section="climate">❄ Climate</button>
       <button class="nav-btn red"           data-section="display">▣ Display</button>
@@ -55,8 +56,148 @@
     <!-- CONTENT -->
     <main class="lcars-content" id="content-area">
 
+      <!-- ═══ READY ROOM ══════════════════════════════════════════════════ -->
+      <div class="section active" id="section-ready-room">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+          <!-- Office Lights -->
+          <div class="panel">
+            <div class="panel-header blue">
+              <span class="indicator" id="rr-groups-indicator"></span>
+              Office Lights
+            </div>
+            <div class="panel-body">
+              <div class="device-grid" id="rr-light-groups">
+                <div style="color:var(--dim);font-size:0.75rem">Loading…</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- EcoFlow AC -->
+          <div class="panel">
+            <div class="panel-header yellow">
+              <span class="indicator" id="rr-eco-indicator"></span>
+              Air Conditioner
+              <span style="margin-left:auto;font-size:0.65rem;font-weight:300" id="rr-eco-mode-label"></span>
+            </div>
+            <div class="panel-body">
+              <div style="display:flex;align-items:center;gap:16px;margin-bottom:10px">
+                <div class="temp-big"><span id="rr-eco-temp">--</span><span class="temp-unit">°C</span></div>
+                <div>
+                  <div class="temp-set">SET: <span id="rr-eco-set-temp">--</span>°C</div>
+                  <div class="ctrl-row" style="margin-top:4px">
+                    <button class="lbtn orange" onclick="ecoTempAdj(-1)">▼</button>
+                    <button class="lbtn orange" onclick="ecoTempAdj(+1)">▲</button>
+                  </div>
+                </div>
+              </div>
+              <div class="ctrl-row">
+                <span class="ctrl-label">Power</span>
+                <button class="lbtn green"  onclick="ecoPower(true)">ON</button>
+                <button class="lbtn red"    onclick="ecoPower(false)">OFF</button>
+              </div>
+              <div class="ctrl-row" style="margin-top:6px">
+                <span class="ctrl-label">Mode</span>
+                <button class="lbtn blue"    onclick="ecoMode('cool')">Cool</button>
+                <button class="lbtn orange"  onclick="ecoMode('heat')">Heat</button>
+                <button class="lbtn lt-blue" onclick="ecoMode('fan')">Fan</button>
+              </div>
+              <div class="ctrl-row" style="margin-top:6px">
+                <span class="ctrl-label">Fan</span>
+                <button class="lbtn dim" onclick="ecoFan('low')">Low</button>
+                <button class="lbtn dim" onclick="ecoFan('medium')">Mid</button>
+                <button class="lbtn dim" onclick="ecoFan('high')">High</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ceiling Fan -->
+          <div class="panel">
+            <div class="panel-header green">Ceiling Fan <span style="font-size:0.6rem;color:var(--dim)">(RF not yet working)</span></div>
+            <div class="panel-body">
+              <div class="ctrl-row">
+                <button class="lbtn green power-btn" onclick="fanCmd('fan_high')" title="Power / High">⏻</button>
+                <button class="lbtn red"   onclick="fanCmd('fan_off')">Off</button>
+              </div>
+              <div class="ctrl-row" style="margin-top:6px">
+                <span class="ctrl-label">Speed</span>
+                <button class="lbtn lt-blue" onclick="fanCmd('fan_low')">Low</button>
+                <button class="lbtn blue"    onclick="fanCmd('fan_medium')">Med</button>
+                <button class="lbtn orange"  onclick="fanCmd('fan_high')">High</button>
+              </div>
+              <div class="ctrl-row" style="margin-top:6px">
+                <button class="lbtn yellow" onclick="fanCmd('light')">Toggle Light</button>
+                <button class="lbtn dim"    onclick="fanCmd('direction')">Reverse</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Movie Scene + Soundbar -->
+          <div class="panel">
+            <div class="panel-header gold">Scenes &amp; Audio</div>
+            <div class="panel-body">
+              <div class="scene-card" style="margin-bottom:12px">
+                <div class="scene-title">MOVIE MODE</div>
+                <div class="scene-desc">Office plug off · Projector on · Soundbar on + optical</div>
+                <button class="lbtn gold scene-btn" onclick="movieMode()">▶ ACTIVATE</button>
+              </div>
+              <div class="ctrl-row">
+                <button class="lbtn green power-btn" onclick="irSend('soundbar','power')" title="Power">⏻</button>
+                <button class="lbtn dim"   onclick="irSend('soundbar','mute')">Mute</button>
+                <button class="lbtn blue"    onclick="irSend('soundbar','bluetooth')">BT</button>
+                <button class="lbtn lt-blue" onclick="irSend('soundbar','optical')">Optical</button>
+              </div>
+              <div class="ctrl-row" style="margin-top:6px">
+                <span class="ctrl-label">Vol</span>
+                <button class="lbtn orange" onclick="irSend('soundbar','volume_up')"  >＋</button>
+                <button class="lbtn orange" onclick="irSend('soundbar','volume_down')">－</button>
+                <span class="ctrl-label" style="margin-left:8px">Bass</span>
+                <button class="lbtn dim" onclick="irSend('soundbar','bass_up')"  >＋</button>
+                <button class="lbtn dim" onclick="irSend('soundbar','bass_down')">－</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Roku (full width) -->
+        <div class="panel" style="margin-top:12px">
+          <div class="panel-header lt-blue">
+            <span class="indicator" id="rr-roku-indicator"></span>
+            Roku
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row" style="margin-bottom:6px">
+              <button class="lbtn green  power-btn" onclick="rokuKey('PowerOn')"  title="Power On">⏻</button>
+              <button class="lbtn red    power-btn" onclick="rokuKey('PowerOff')" title="Power Off" style="font-size:0.7rem">OFF</button>
+              <button class="lbtn orange" onclick="rokuKey('Home')">⌂</button>
+              <button class="lbtn dim"    onclick="rokuKey('Back')">← Back</button>
+              <button class="lbtn dim"    onclick="rokuKey('Info')">* Info</button>
+            </div>
+            <div class="dpad-grid">
+              <button class="lbtn blue dpad-up"    onclick="rokuKey('Up')">▲</button>
+              <button class="lbtn blue dpad-left"  onclick="rokuKey('Left')">◀</button>
+              <button class="lbtn orange dpad-center" onclick="rokuKey('Select')">OK</button>
+              <button class="lbtn blue dpad-right" onclick="rokuKey('Right')">▶</button>
+              <button class="lbtn blue dpad-down"  onclick="rokuKey('Down')">▼</button>
+            </div>
+            <div class="ctrl-row" style="margin-top:6px">
+              <button class="lbtn dim" onclick="rokuKey('Rev')">⏪</button>
+              <button class="lbtn orange" onclick="rokuKey('Play')">⏯</button>
+              <button class="lbtn dim" onclick="rokuKey('Fwd')">⏩</button>
+              <button class="lbtn orange" style="margin-left:16px" onclick="rokuKey('VolumeUp')">＋</button>
+              <button class="lbtn orange" onclick="rokuKey('VolumeDown')">－</button>
+              <button class="lbtn dim"    onclick="rokuKey('VolumeMute')">Mute</button>
+            </div>
+            <div class="apps-grid" id="rr-roku-apps" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+      </div>
+
       <!-- ═══ POWER (Kasa) ═══════════════════════════════════════════════ -->
-      <div class="section active" id="section-power">
+      <div class="section" id="section-power">
         <div class="panel">
           <div class="panel-header orange">
             <span class="indicator" id="kasa-indicator"></span>

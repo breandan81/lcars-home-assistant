@@ -286,8 +286,9 @@ function renderGroups() {
   if (!groups.length) { panel.style.display = 'none'; return; }
   panel.style.display = '';
   setIndicator('groups-indicator', 'on');
+  setIndicator('rr-groups-indicator', 'on');
 
-  container.innerHTML = groups.map(g => `
+  const html = groups.map(g => `
     <div class="device-card">
       <div class="dev-name">${esc(g.name)}</div>
       <div class="dev-status">${g.is_on ? '● ON' : '○ OFF'} &nbsp;·&nbsp; ${g.devices.length} bulb(s)</div>
@@ -308,6 +309,9 @@ function renderGroups() {
       </div>
     </div>
   `).join('');
+  container.innerHTML = html;
+  const rrContainer = document.getElementById('rr-light-groups');
+  if (rrContainer) rrContainer.innerHTML = html;
 }
 
 async function tuyaToggle(name, currentlyOn) {
@@ -420,13 +424,22 @@ function renderEcoflow() {
   const note = document.getElementById('eco-setup-note');
   note.style.display = (!connected && d.mode === 'mqtt_local') ? '' : 'none';
 
-  document.getElementById('eco-temp').textContent     = s.temp     != null ? s.temp     : '--';
-  document.getElementById('eco-set-temp').textContent = s.setTemp  != null ? s.setTemp  : '--';
+  const tempText    = s.temp    != null ? s.temp    : '--';
+  const setTempText = s.setTemp != null ? s.setTemp : '--';
+  document.getElementById('eco-temp').textContent     = tempText;
+  document.getElementById('eco-set-temp').textContent = setTempText;
+  const rrTemp    = document.getElementById('rr-eco-temp');
+  const rrSetTemp = document.getElementById('rr-eco-set-temp');
+  if (rrTemp)    rrTemp.textContent    = tempText;
+  if (rrSetTemp) rrSetTemp.textContent = setTempText;
   if (s.setTemp) state.ecoSetTemp = s.setTemp;
 
   const modeNames = ['Cool', 'Heat', 'Fan'];
-  document.getElementById('eco-mode-label').textContent =
-    s.workMode != null ? modeNames[s.workMode] || '' : '';
+  const modeText = s.workMode != null ? modeNames[s.workMode] || '' : '';
+  document.getElementById('eco-mode-label').textContent = modeText;
+  const rrModeLabel = document.getElementById('rr-eco-mode-label');
+  if (rrModeLabel) rrModeLabel.textContent = modeText;
+  setIndicator('rr-eco-indicator', connected ? 'on' : 'warn');
 
   const table = document.getElementById('eco-table');
   const rows = [
@@ -698,6 +711,7 @@ async function rokuDiscover() {
   const data = await api('GET', '/api/roku/discover');
   if (data.length) {
     setIndicator('roku-indicator', 'on');
+    setIndicator('rr-roku-indicator', 'on');
     const d = data[0];
     document.getElementById('roku-info').textContent =
       `${d.friendly_device_name || d.user_device_name || 'Roku'} · ${d.software_version || ''}`;
@@ -719,10 +733,12 @@ async function rokuLoadApps() {
   const apps = await api('GET', '/api/roku/apps');
   if (!Array.isArray(apps)) return;
   state.roku.apps = apps;
-  const grid = document.getElementById('roku-apps');
-  grid.innerHTML = apps.map(a =>
+  const appsHtml = apps.map(a =>
     `<button class="app-btn" onclick="rokuLaunch('${esc(a.id)}', '${esc(a.name)}')">${esc(a.name)}</button>`
   ).join('');
+  document.getElementById('roku-apps').innerHTML = appsHtml;
+  const rrApps = document.getElementById('rr-roku-apps');
+  if (rrApps) rrApps.innerHTML = appsHtml;
 }
 
 async function rokuLaunch(appId, name) {
