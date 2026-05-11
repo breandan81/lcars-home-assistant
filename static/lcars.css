@@ -152,6 +152,9 @@ html, body {
   width: var(--sidebar);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  /* Orange strip runs the full sidebar height; buttons paint over it */
+  background: linear-gradient(to right, var(--orange) 36px, var(--bg) 36px);
 }
 
 .nav-scroll {
@@ -159,9 +162,8 @@ html, body {
   min-height: 0;       /* lets flex child shrink below content size so overflow works */
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 24px;   /* offset for elbow-tl overlap */
-  padding-bottom: 4px;
+  gap: 2px;
+  padding-top: 18px;   /* offset for elbow-tl overlap */
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
@@ -170,7 +172,7 @@ html, body {
 
 .nav-btn {
   flex-shrink: 0;
-  height: 36px;
+  height: 32px;
   border: none;
   outline: none;
   cursor: pointer;
@@ -215,7 +217,7 @@ html, body {
   position: absolute;
   inset: 0;
   background: var(--orange);
-  border-bottom-left-radius: var(--radius);
+  /* no border-bottom-left-radius — the footer's elbow-bl-footer provides the page corner curve */
   top: 0;
 }
 
@@ -816,6 +818,7 @@ select option { background: #0d0d1f; }
   .lcars-sidebar {
     order: 2;
     width: 100%;
+    background: #08080f; /* reset gradient — sidebar is now horizontal */
     flex-direction: row;
     flex-wrap: nowrap;
     overflow-x: auto;
