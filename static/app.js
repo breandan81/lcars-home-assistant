@@ -1194,4 +1194,6 @@ function rgbToHsv(r, g, b) {
 
   if (samsungData && !samsungData.error) renderSamsungStatus(samsungData);
   if (philipsData && !philipsData.error) renderPhilipsStatus(philipsData);
+
+  rokuEnsureConnected();
 })();
