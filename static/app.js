@@ -210,6 +210,21 @@ function renderKasa() {
   setIndicator('kasa-indicator', 'on');
   count.textContent = `${state.kasa.length} UNIT(S)`;
 
+  const office = state.kasa.find(d => d.alias.toLowerCase() === 'office');
+  const rrPlug = document.getElementById('rr-office-plug');
+  if (rrPlug) {
+    if (office) {
+      setIndicator('rr-office-indicator', office.is_on ? 'on' : '');
+      rrPlug.innerHTML = `
+        <div class="dev-status">${office.is_on ? '● ON' : '○ OFF'}</div>
+        <div class="ctrl-row" style="margin-top:6px">
+          <button class="lbtn ${office.is_on ? 'green' : 'red'}" onclick="kasaToggle('${esc(office.alias)}', ${office.is_on})">${office.is_on ? 'Turn OFF' : 'Turn ON'}</button>
+        </div>`;
+    } else {
+      rrPlug.innerHTML = '<div style="color:var(--dim);font-size:0.75rem">Not found</div>';
+    }
+  }
+
   container.innerHTML = state.kasa.map(d => `
     <div class="device-card">
       <div class="dev-name">${esc(d.alias)}</div>
@@ -286,7 +301,6 @@ function renderGroups() {
   if (!groups.length) { panel.style.display = 'none'; return; }
   panel.style.display = '';
   setIndicator('groups-indicator', 'on');
-  setIndicator('rr-groups-indicator', 'on');
 
   const html = groups.map(g => `
     <div class="device-card">
@@ -310,8 +324,6 @@ function renderGroups() {
     </div>
   `).join('');
   container.innerHTML = html;
-  const rrContainer = document.getElementById('rr-light-groups');
-  if (rrContainer) rrContainer.innerHTML = html;
 }
 
 async function tuyaToggle(name, currentlyOn) {
