@@ -216,7 +216,7 @@ function renderKasa() {
       <div class="dev-ip">${esc(d.host || '')} &nbsp;·&nbsp; ${esc(d.model || '')}</div>
       <div class="dev-status">${d.error ? '⚠ ' + esc(d.error) : (d.is_on ? '● ON' : '○ OFF')}</div>
       <div class="ctrl-row">
-        <button class="lbtn green" onclick="kasaToggle('${esc(d.alias)}', ${d.is_on})">${d.is_on ? 'Turn OFF' : 'Turn ON'}</button>
+        <button class="lbtn ${d.is_on ? 'green' : 'red'}" onclick="kasaToggle('${esc(d.alias)}', ${d.is_on})">${d.is_on ? 'Turn OFF' : 'Turn ON'}</button>
       </div>
       ${d.children && d.children.length ? `
         <div style="margin-top:8px;font-size:0.65rem;color:var(--dim)">STRIP OUTLETS:</div>

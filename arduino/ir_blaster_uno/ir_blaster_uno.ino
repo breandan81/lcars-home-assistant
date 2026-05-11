@@ -20,7 +20,6 @@
  *   LEARN\n                          → CODE <PROTO> <HEXCODE> <BITS>\n  (IR learn)
  *   RFSEND <HEXCODE> <BITS> <PROTO>\n → OK\n         (RF send)
  *   RFLEARN\n                        → RFCODE <HEXCODE> <BITS> <PROTO>\n (RF learn)
- *   RFRAW\n                          → RAW <n> <t1> <t2> …\n or NOSIGNAL\n (pulse dump)
  *   Any of the above → TIMEOUT\n or ERROR msg\n on failure
  *
  * Note on timer sharing:
@@ -67,7 +66,6 @@ void handleCommand(const String& cmd) {
   else if (cmd == "LEARN")            doIRLearn();
   else if (cmd.startsWith("RFSEND ")) doRFSend(cmd);
   else if (cmd == "RFLEARN")          doRFLearn();
-  else if (cmd == "RFRAW")            doRFRaw();
   else                                 Serial.println("ERROR unknown command");
 }
 
@@ -194,49 +192,6 @@ void doRFLearn() {
 
   rf.disableReceive();
   Serial.println("TIMEOUT");
-}
-
-// ─── RF RAW PULSE DUMP ───────────────────────────────────────────────────────
-// Waits up to 5 s for any signal on RF_RECV_PIN, then dumps raw pulse timings.
-// Useful for checking if the receiver is alive and what it hears.
-// Output: RAW <count> <us1> <us2> … (alternating high/low durations)
-//         NOSIGNAL if nothing arrives within the timeout.
-#define RFRAW_MAX_PULSES 128
-void doRFRaw() {
-  rf.disableReceive();
-  irrecv.disableIRIn();
-  pinMode(RF_RECV_PIN, INPUT);
-
-  // Wait for the line to go high (idle) first
-  unsigned long wait = millis() + 500;
-  while (digitalRead(RF_RECV_PIN) == LOW && millis() < wait);
-
-  // Wait for a falling edge (signal start) within 5 s
-  unsigned long deadline = millis() + 5000UL;
-  while (digitalRead(RF_RECV_PIN) == HIGH) {
-    if (millis() > deadline) { Serial.println("NOSIGNAL"); return; }
-  }
-
-  // Capture alternating low/high pulse durations
-  static unsigned int pulses[RFRAW_MAX_PULSES];
-  int count = 0;
-  int state = LOW;
-  while (count < RFRAW_MAX_PULSES) {
-    unsigned long t = pulseIn(RF_RECV_PIN, state == LOW ? LOW : HIGH, 10000UL);
-    if (t == 0) break;
-    pulses[count++] = (unsigned int)min(t, 65535UL);
-    state = !state;
-  }
-
-  if (count == 0) { Serial.println("NOSIGNAL"); return; }
-
-  Serial.print("RAW ");
-  Serial.print(count);
-  for (int i = 0; i < count; i++) {
-    Serial.print(' ');
-    Serial.print(pulses[i]);
-  }
-  Serial.println();
 }
 
 // ─── IR protocol name ────────────────────────────────────────────────────────
