@@ -691,19 +691,18 @@ bool hunterRead(uint8_t *outBytes, size_t maxBytes)
     return true;
 }
 
-void waitForNextRFClock()
+void ICACHE_RAM_ATTR waitForNextRFClock()
 {
-    unsigned long startTime = micros()%clkPeriod;
-    while ((micros() % clkPeriod) > startTime) 
-    {
-        startTime = micros()%clkPeriod;
-    }
+    unsigned long entry = micros();
+    unsigned long phase = entry % clkPeriod;
+    unsigned long next  = entry + (clkPeriod - phase);
+    while ((long)(micros() - next) < 0) {}
 }
 
-void sendPreamble()
+void ICACHE_RAM_ATTR sendPreamble()
 {
-    // send 20 clock pulses as preamble
-    for (int i = 0; i < 11; i++)
+    // 60 pairs = 120 transitions; gives RX module AGC time to settle
+    for (int i = 0; i < 60; i++)
     {
         waitForNextRFClock();
         digitalWrite(TX_PIN, HIGH);
@@ -711,7 +710,7 @@ void sendPreamble()
         digitalWrite(TX_PIN, LOW);
     }
 }
-void sendAnchorPulse()
+void ICACHE_RAM_ATTR sendAnchorPulse()
 {
     // send a long pulse for anchor
     digitalWrite(TX_PIN, LOW);
@@ -720,7 +719,7 @@ void sendAnchorPulse()
         waitForNextRFClock();
     }
 }
-void sendLongPulse()
+void ICACHE_RAM_ATTR sendLongPulse()
 {
     waitForNextRFClock();
     digitalWrite(TX_PIN, HIGH);
@@ -729,15 +728,16 @@ void sendLongPulse()
 
     digitalWrite(TX_PIN, LOW);
 }
-void sendShortPulse()
+void ICACHE_RAM_ATTR sendShortPulse()
 {
     waitForNextRFClock();
     digitalWrite(TX_PIN, HIGH);
     waitForNextRFClock();
     digitalWrite(TX_PIN, LOW);
+    waitForNextRFClock();   // hold LOW for 2nd clock so bit is 1T+2T=3T, not 2T
 }
 
-void sendBuffer(long bits)
+void ICACHE_RAM_ATTR sendBuffer(long bits)
 {
     sendPreamble();
     sendAnchorPulse();
@@ -800,8 +800,10 @@ void hunterPlay()
 
     for (int i = 0; i < 3; i++)
     {
+        noInterrupts();
         sendBuffer(bitsToSend);
-        delayMicroseconds(26000);
+        interrupts();
+        if (i < 2) delayMicroseconds(26000);
     }
 }
 
