@@ -47,6 +47,17 @@ class AidotController:
                 name = dev.get("name") or dev.get("id", "unknown")
                 self._devices[name] = dc
             logger.info(f"AiDot: logged in, {len(self._devices)} device(s) found")
+
+            # Fallback: directly connect devices with configured static IPs that
+            # UDP discovery didn't reach (e.g. bulb doesn't respond to broadcast).
+            static_ips = self.config.get("static_ips") or {}
+            for name, ip in static_ips.items():
+                dc = self._devices.get(name)
+                if dc and not dc.connect_and_login:
+                    logger.info(f"AiDot: static IP fallback {ip} for '{name}'")
+                    dc.update_ip_address(ip)
+            if static_ips:
+                await asyncio.sleep(3)
         except Exception as e:
             logger.error(f"AiDot start failed: {e}")
 
@@ -167,6 +178,15 @@ class AidotController:
         members = self._group_members(group_name)
         await asyncio.gather(*[self.set_color_temp(m, kelvin) for m in members])
         return {"group": group_name, "kelvin": kelvin}
+
+    async def connect_device(self, name: str, ip: str) -> dict:
+        dc = self._devices.get(name)
+        if not dc:
+            return {"error": f"Device '{name}' not found"}
+        dc.update_ip_address(ip)
+        await asyncio.sleep(2)
+        s = dc.status
+        return {"name": name, "ip": ip, "online": bool(s.online) if s else False}
 
     def device_names(self) -> List[str]:
         return list(self._devices.keys())

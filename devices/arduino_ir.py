@@ -88,6 +88,9 @@ class _SerialTransport:
                 return {"code": "0x" + parts[1], "bits": int(parts[2]), "protocol": int(parts[3])}
         return None
 
+    def garage_trigger(self) -> bool:
+        return self._cmd("GDOOR") == "OK"
+
 
 # ── HTTP transport (ESP32 / ESP8266) ──────────────────────────────────────────
 
@@ -133,6 +136,10 @@ class _HttpTransport:
 
     def learn_rf(self) -> Optional[dict]:
         return self._get("/rf/learn")
+
+    def garage_trigger(self) -> bool:
+        ok, _ = self._post("/garage/trigger", {})
+        return ok
 
 
 # ── Controller ────────────────────────────────────────────────────────────────
@@ -230,6 +237,12 @@ class ArduinoIRController:
         self.devices_config[device_id].setdefault("commands", {})[command_name] = result.get("code", "")
         logger.info(f"Learned {device_id}/{command_name} = {result}")
         return {**result, "device": device_id, "command": command_name}
+
+    async def trigger_garage(self) -> dict:
+        if not self._transport:
+            return {"error": "Arduino not configured"}
+        ok = await asyncio.get_event_loop().run_in_executor(None, self._transport.garage_trigger)
+        return {"triggered": True} if ok else {"error": "Arduino did not confirm GDOOR"}
 
     async def ping(self) -> bool:
         if not self._transport:

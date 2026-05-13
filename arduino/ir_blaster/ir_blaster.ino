@@ -11,11 +11,16 @@
  *   IR Recv  → GPIO 14 (DATA pin of TSOP38238)      ← IR_RECV_PIN
  *   TSOP VCC → 3.3 V,  TSOP GND → GND
  *
+ *   Garage remote   Button pin (hi side) → GPIO 5 (D1 on NodeMCU)  ← GARAGE_PIN
+ *     Power remote from ESP 3.3V pin instead of its CR2032.
+ *     GPIO 5 idles as INPUT (hi-Z); pulses OUTPUT LOW for 200ms to press button.
+ *
  * HTTP API (port 80):
- *   GET  /ping           → { "ok": true, "ip": "..." }
- *   POST /ir/send        → body: { "protocol": "NEC", "code": "0x807F817E", "bits": 32 }
- *   GET  /ir/learn       → waits up to 10s for an IR signal, returns { "code": "0x..." }
- *   GET  /ir/learn/raw   → returns raw timing data
+ *   GET  /ping              → { "ok": true, "ip": "..." }
+ *   POST /ir/send           → body: { "protocol": "NEC", "code": "0x807F817E", "bits": 32 }
+ *   GET  /ir/learn          → waits up to 10s for an IR signal, returns { "code": "0x..." }
+ *   GET  /ir/learn/raw      → returns raw timing data
+ *   POST /garage/trigger    → { "triggered": true }
  */
 
 #include <Arduino.h>
@@ -33,6 +38,7 @@ const char* WIFI_PASSWORD = "YOUR_PASSWORD";
 
 const uint16_t IR_SEND_PIN = 4;   // GPIO connected to IR LED
 const uint16_t IR_RECV_PIN = 14;  // GPIO connected to TSOP receiver DATA pin
+const uint16_t GARAGE_PIN  = 5;   // GPIO5 = D1 on NodeMCU; idles hi-Z, pulses LOW to trigger
 const uint16_t CAPTURE_BUF = 1024;
 
 // ─── Globals ───────────────────────────────────────────────────────────────
@@ -49,6 +55,7 @@ String   learnProtocol;
 void setup() {
   Serial.begin(115200);
   irsend.begin();
+  pinMode(GARAGE_PIN, INPUT); // hi-Z until triggered
 
   // Connect WiFi
   Serial.printf("Connecting to %s", WIFI_SSID);
@@ -120,6 +127,15 @@ void setup() {
     }
     String out; serializeJson(resp, out);
     req->send(200, "application/json", out);
+  });
+
+  // POST /garage/trigger — pulse button pin LOW for 200ms
+  server.on("/garage/trigger", HTTP_POST, [](AsyncWebServerRequest* req) {
+    pinMode(GARAGE_PIN, OUTPUT);
+    digitalWrite(GARAGE_PIN, LOW);
+    delay(200);
+    pinMode(GARAGE_PIN, INPUT); // back to hi-Z
+    req->send(200, "application/json", "{\"triggered\":true}");
   });
 
   // CORS for local dev

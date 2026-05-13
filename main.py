@@ -99,9 +99,19 @@ async def lighting_devices():
 
 @app.post("/api/lighting/refresh")
 async def lighting_refresh():
+    try:
+        with open(_config_path) as f:
+            fresh = yaml.safe_load(f) or {}
+        aidot.config.update(fresh.get("aidot") or {})
+    except Exception as e:
+        logger.warning(f"Config reload on refresh failed: {e}")
     await aidot.start()
     devices = aidot.get_all_status()
     return {"count": len(devices), "devices": devices}
+
+@app.post("/api/lighting/{name}/connect")
+async def lighting_connect(name: str, ip: str):
+    return await aidot.connect_device(name, ip)
 
 @app.post("/api/lighting/{name}/power")
 async def lighting_power(name: str, state: bool):
@@ -380,6 +390,15 @@ async def philips_pair_grant(pin: str):
 @app.post("/api/philips/keypress/{key}")
 async def philips_key(key: str):
     return await philips.send_key(key)
+
+
+# ── Garage ───────────────────────────────────────────────────────────────────
+
+@app.post("/api/garage/trigger")
+async def garage_trigger():
+    result = await arduino.trigger_garage()
+    await broadcast({"type": "garage", "triggered": "triggered" in result})
+    return result
 
 
 # ── Scenes ───────────────────────────────────────────────────────────────────

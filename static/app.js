@@ -808,6 +808,30 @@ async function rokuLaunch(appId, name) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// GARAGE
+// ════════════════════════════════════════════════════════════════════════════
+
+async function garageTrigger() {
+  const btn = document.getElementById('garage-btn');
+  const status = document.getElementById('garage-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ TRIGGERING…';
+  const r = await api('POST', '/api/garage/trigger');
+  btn.disabled = false;
+  btn.textContent = '⊡ TRIGGER';
+  if (r.error) {
+    toast('Garage error: ' + r.error, 'var(--red)');
+    status.style.color = 'var(--red)';
+    status.textContent = 'Error: ' + r.error;
+  } else {
+    toast('Garage triggered', 'var(--lilac)');
+    status.style.color = 'var(--dim)';
+    status.textContent = 'Last triggered: ' + new Date().toLocaleTimeString();
+    setAction('Garage: triggered');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // SCENES
 // ════════════════════════════════════════════════════════════════════════════
 

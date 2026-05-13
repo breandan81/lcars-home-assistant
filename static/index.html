@@ -44,6 +44,7 @@
         <button class="nav-btn purple"        data-section="audio">♪ Audio</button>
         <button class="nav-btn lt-blue"       data-section="roku">▶ Roku</button>
         <button class="nav-btn tan"           data-section="samsung">▣ Samsung</button>
+        <button class="nav-btn lilac"        data-section="garage">⊡ Garage</button>
         <button class="nav-btn gold"          data-section="scenes">★ Scenes</button>
         <button class="nav-btn green"         data-section="learn">◎ Learn</button>
       </div>
@@ -540,6 +541,19 @@
         </div>
       </div>
 
+      <!-- ═══ GARAGE ═══════════════════════════════════════════════════════ -->
+      <div class="section" id="section-garage">
+        <div class="panel">
+          <div class="panel-header lilac">Garage Door</div>
+          <div class="panel-body" style="align-items:center;gap:20px">
+            <button class="lbtn lilac" id="garage-btn" onclick="garageTrigger()" style="font-size:1.1rem;padding:14px 36px">
+              ⊡ TRIGGER
+            </button>
+            <div id="garage-status" style="font-size:0.75rem;color:var(--dim)"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ LEARN (IR/RF Code Learner) ════════════════════════════════════ -->
       <div class="section" id="section-learn">
         <div class="panel">
@@ -618,6 +632,6 @@
 
 <div id="toast"></div>
 
-<script src="/static/app.js?v=3"></script>
+<script src="/static/app.js?v=4"></script>
 </body>
 </html>

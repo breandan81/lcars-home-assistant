@@ -1,46 +1,46 @@
 #!/usr/bin/env python3
 """
-rf_analyze.py — extract a clean repeating RF code from a raw pulse dump.
+rf_analyze.py — extract a clean repeating RF frame from a raw pulse dump.
 
 Usage:
-    python3 rf_analyze.py dump.txt          # from a saved file
     python3 rf_analyze.py                   # paste RFRAW line, then Ctrl-D
+    python3 rf_analyze.py dump.txt          # from a saved file
+    python3 rf_analyze.py --sync 6000       # manually set sync threshold (µs)
 
 Input: one line starting with RFRAW from the sketch's D command, e.g.
     RFRAW firstHigh=1 count=347 pulses=320 9120 560 1680 ...
 
 Output:
-    - Detected sync pulse width and frame count
-    - Pulse-width clusters (what "short" and "long" look like)
-    - The cleaned single-frame sequence as a line you can paste into L command
+    - Pulse width clusters
+    - Detected sync threshold and frame count
+    - One clean raw frame (unquantized) ready to paste into the L command
 """
 
 import sys
 import re
+import argparse
 from collections import Counter
-from statistics import mean, stdev
+from statistics import mean
 
 # ── parse ─────────────────────────────────────────────────────────────────
 def parse_dump(text):
-    m = re.search(r'firstHigh=(\d)\s+count=\d+\s+pulses=([\d\s]+)', text)
+    m = re.search(r'firstHigh=(\d)\s+count=\d+\s+pulses=([\d\s,]+)', text)
     if not m:
-        # fallback: just a list of numbers
         first_high = True
-        nums = list(map(int, text.split()))
+        nums = list(map(int, re.split(r'[\s,]+', text.strip())))
     else:
         first_high = bool(int(m.group(1)))
-        nums = list(map(int, m.group(2).split()))
-    return first_high, nums
+        nums = list(map(int, re.split(r'[\s,]+', m.group(2).strip())))
+    return first_high, [n for n in nums if n > 0]
 
-# ── quantize pulses into clusters ─────────────────────────────────────────
+# ── cluster pulse widths ──────────────────────────────────────────────────
 def cluster_widths(pulses, n_clusters=4):
-    """Simple 1-D k-means to find pulse width buckets."""
+    if len(pulses) < n_clusters:
+        return [(int(mean(pulses)), pulses)]
     sorted_p = sorted(set(pulses))
-    # seed: evenly spaced across range
     lo, hi = sorted_p[0], sorted_p[-1]
     centers = [lo + (hi - lo) * i / (n_clusters - 1) for i in range(n_clusters)]
-
-    for _ in range(20):
+    for _ in range(30):
         groups = [[] for _ in range(n_clusters)]
         for p in pulses:
             nearest = min(range(n_clusters), key=lambda i: abs(p - centers[i]))
@@ -49,166 +49,177 @@ def cluster_widths(pulses, n_clusters=4):
         if new_centers == centers:
             break
         centers = new_centers
-
-    # remove empty clusters
     clusters = [(int(mean(g)), g) for g in groups if g]
     clusters.sort()
     return clusters
 
-# ── find sync boundaries ──────────────────────────────────────────────────
-def find_sync_threshold(pulses):
+# ── sync threshold detection ──────────────────────────────────────────────
+def find_sync_threshold(pulses, manual=None):
     """
-    The sync/gap pulse is usually the longest by a significant margin.
-    We look for a bimodal distribution where the top cluster is ≥3× the
-    next-largest cluster — that gap is the frame separator.
-    """
-    clusters = cluster_widths(pulses)
-    if len(clusters) < 2:
-        return None
+    Return the threshold above which a pulse is a sync/gap rather than data.
 
-    # Check from largest cluster downward for a big jump
-    centers = [c[0] for c in clusters]
+    Strategy (without manual override):
+      1. Cluster the pulses into up to 4 groups.
+      2. Data pulses appear frequently (>3% of all pulses).
+         Sync pulses appear rarely.
+      3. Find the highest-frequency cluster, then set threshold just above
+         the highest cluster that still exceeds the 3% frequency cutoff.
+      4. Fallback: first cluster that is ≥3× the previous cluster center.
+    """
+    if manual:
+        return manual
+
+    total = len(pulses)
+    clusters = cluster_widths(pulses)
+    centers = [c for c, _ in clusters]
+    counts  = [len(g) for _, g in clusters]
+
+    # Frequency-based: clusters with >3% of pulses are data
+    data_threshold = 0.03 * total
+    data_clusters = [(c, n) for c, n in zip(centers, counts) if n >= data_threshold]
+
+    if data_clusters:
+        highest_data_center = max(c for c, _ in data_clusters)
+        # Sync threshold = midpoint between highest data cluster and next one up
+        above = [c for c in centers if c > highest_data_center]
+        if above:
+            return (highest_data_center + min(above)) // 2
+
+    # Fallback: 3× jump rule (top-down)
     for i in range(len(centers) - 1, 0, -1):
         if centers[i] >= 3 * centers[i - 1]:
-            # threshold halfway between the two clusters
             return (centers[i] + centers[i - 1]) // 2
 
-    # Fallback: anything > 2× the median
-    med = sorted(pulses)[len(pulses) // 2]
-    return med * 2
+    # Last resort: 2× median
+    return sorted(pulses)[len(pulses) // 2] * 2
 
 # ── split into frames ─────────────────────────────────────────────────────
 def split_frames(pulses, sync_threshold):
-    """Split pulse list at any pulse wider than sync_threshold."""
+    """
+    Split at sync pulses. Returns list of (sync_pulse, data_pulses) tuples.
+    sync_pulse is the gap that preceded this frame (0 for the first).
+    """
     frames = []
     current = []
+    last_sync = 0
     for p in pulses:
         if p >= sync_threshold:
             if len(current) >= 6:
-                frames.append(current)
+                frames.append((last_sync, current))
             current = []
+            last_sync = p
         else:
             current.append(p)
     if len(current) >= 6:
-        frames.append(current)
+        frames.append((last_sync, current))
     return frames
 
-# ── find most common frame ────────────────────────────────────────────────
-def best_frame(frames, tolerance=0.20):
-    """
-    Among all captured frames, find the one that matches the most others
-    within ±tolerance of each pulse width. Returns (frame, match_count).
-    """
-    if not frames:
-        return None, 0
+# ── find best matching frame ──────────────────────────────────────────────
+def best_frame(frame_tuples, tolerance=0.20, len_tolerance=0.15):
+    """Find the frame that matches the most others by pulse timing."""
+    if not frame_tuples:
+        return None, 0, 0
+
+    def len_compat(a, b):
+        longer = max(len(a), len(b))
+        return abs(len(a) - len(b)) <= len_tolerance * longer
 
     def frames_match(a, b):
-        if len(a) != len(b):
+        if not len_compat(a, b):
             return False
-        return all(abs(x - y) <= tolerance * max(x, y) for x, y in zip(a, b))
+        n = min(len(a), len(b))
+        return all(abs(x - y) <= tolerance * max(x, y) for x, y in zip(a[:n], b[:n]))
 
-    best = None
-    best_score = 0
-    for i, f in enumerate(frames):
-        score = sum(1 for j, g in enumerate(frames) if i != j and frames_match(f, g))
+    data_arrays = [d for _, d in frame_tuples]
+    best_d, best_s, best_score = None, 0, -1
+    for i, (s, d) in enumerate(frame_tuples):
+        score = sum(1 for j, g in enumerate(data_arrays) if i != j and frames_match(d, g))
         if score > best_score:
             best_score = score
-            best = f
-    return best, best_score
+            best_d = d
+            best_s = s
 
-# ── quantize a frame to rounded values ───────────────────────────────────
-def quantize_frame(frame, all_pulses):
-    clusters = cluster_widths(all_pulses)
-    centers = [c[0] for c in clusters]
+    # Fallback: frame closest to median length
+    if best_d is None or best_score == 0:
+        med = sorted(len(d) for _, d in frame_tuples)[len(frame_tuples) // 2]
+        best_s, best_d = min(frame_tuples, key=lambda t: abs(len(t[1]) - med))
 
-    def nearest(v):
-        return min(centers, key=lambda c: abs(v - c))
-
-    return [nearest(p) for p in frame]
+    return best_s, best_d, best_score
 
 # ── main ──────────────────────────────────────────────────────────────────
 def main():
-    if len(sys.argv) > 1:
-        text = open(sys.argv[1]).read()
+    parser = argparse.ArgumentParser(description='Extract RF frame from raw pulse dump')
+    parser.add_argument('file', nargs='?', help='File containing RFRAW line')
+    parser.add_argument('--sync', type=int, default=None,
+                        help='Manual sync threshold in µs (overrides auto-detection)')
+    args = parser.parse_args()
+
+    if args.file:
+        text = open(args.file).read()
     else:
         print("Paste the RFRAW line from the sketch (then Ctrl-D):")
         text = sys.stdin.read()
 
     first_high, pulses = parse_dump(text)
+    if not pulses:
+        print("No pulses found in input.")
+        return
 
     print(f"\nTotal pulses captured: {len(pulses)}")
     print(f"First pulse polarity: {'HIGH' if first_high else 'LOW'}")
     print(f"Duration range: {min(pulses)}µs – {max(pulses)}µs")
 
-    # Cluster analysis
     clusters = cluster_widths(pulses)
     print(f"\nPulse width clusters ({len(clusters)} found):")
     for center, group in clusters:
-        print(f"  ~{center:5d}µs  ×{len(group):4d}  "
-              f"(range {min(group)}–{max(group)}µs)")
+        pct = 100 * len(group) / len(pulses)
+        print(f"  ~{center:6d}µs  ×{len(group):4d}  ({pct:4.1f}%)  "
+              f"range {min(group)}–{max(group)}µs"
+              + ("  ← likely data" if len(group) / len(pulses) > 0.03 else "  ← likely sync/gap"))
 
-    # Find sync threshold
-    sync_thresh = find_sync_threshold(pulses)
-    if sync_thresh:
-        sync_count = sum(1 for p in pulses if p >= sync_thresh)
-        print(f"\nSync threshold: >{sync_thresh}µs  "
-              f"({sync_count} sync pulses found)")
+    sync_thresh = find_sync_threshold(pulses, args.sync)
+    sync_count = sum(1 for p in pulses if p >= sync_thresh)
+    print(f"\nSync threshold: >{sync_thresh}µs  ({sync_count} sync pulses)")
+    if args.sync:
+        print("  (manually set)")
     else:
-        print("\nNo clear sync pulse found — all pulses similar width")
-        print("Trying with 2× median as threshold...")
-        sync_thresh = sorted(pulses)[len(pulses) // 2] * 2
+        print("  (auto-detected — use --sync N to override)")
 
-    # Split and analyse frames
-    frames = split_frames(pulses, sync_thresh)
-    print(f"Frames detected: {len(frames)}")
-    if frames:
-        lengths = Counter(len(f) for f in frames)
+    frame_tuples = split_frames(pulses, sync_thresh)
+    print(f"Frames detected: {len(frame_tuples)}")
+    if frame_tuples:
+        lengths = Counter(len(d) for _, d in frame_tuples)
         print(f"Frame lengths: {dict(lengths)}")
 
-    if len(frames) < 2:
-        print("\nToo few frames — try capturing with button held longer,")
-        print("or the sync threshold may be wrong. Check the cluster output above.")
-        # Still output what we have
-        if frames:
-            frame = frames[0]
-        else:
-            print("No usable frames found.")
-            return
-        matches = 0
-    else:
-        frame, matches = best_frame(frames)
-        print(f"\nBest frame: {len(frame)} pulses, matched {matches}/{len(frames)-1} other frames")
+    # Filter noise frames
+    if frame_tuples:
+        med = sorted(len(d) for _, d in frame_tuples)[len(frame_tuples) // 2]
+        frame_tuples = [(s, d) for s, d in frame_tuples
+                        if len(d) >= 6 and len(d) <= med * 3]
+        print(f"After noise filter: {len(frame_tuples)} frame(s)")
 
-    if not frame:
-        print("Could not extract a consistent frame.")
+    if not frame_tuples:
+        print("\nNo usable frames — try adjusting --sync threshold.")
         return
 
-    # Quantize to clean values
-    qframe = quantize_frame(frame, pulses)
+    sync_val, frame, matches = best_frame(frame_tuples)
+    print(f"\nSelected frame: {len(frame)} pulses"
+          + (f", matched {matches}/{len(frame_tuples)-1} others" if len(frame_tuples) > 1 else ""))
 
-    print("\n── Cleaned frame ──────────────────────────────────────")
+    # Output raw (unquantized) frame with sync pulse prepended
+    if sync_val > 0:
+        full = [sync_val] + frame
+        print(f"Sync pulse prepended: {sync_val}µs")
+    else:
+        full = frame
+
     pol = 'H' if first_high else 'L'
-    output = pol + ' ' + ' '.join(str(p) for p in qframe)
+    output = pol + ' ' + ' '.join(str(p) for p in full)
+
+    print("\n── Raw frame (sync + data, unquantized) ───────────────")
     print(output)
     print("\n── Paste the line above into the sketch's L command ──")
-
-    # Also show human-readable bit pattern if 2 distinct pulse widths
-    data_pulses = [p for p in pulses if p < sync_thresh]
-    data_clusters = cluster_widths(data_pulses, n_clusters=2)
-    if len(data_clusters) == 2:
-        short_c, long_c = data_clusters[0][0], data_clusters[1][0]
-        print(f"\nBit encoding (short={short_c}µs, long={long_c}µs):")
-        bits = []
-        for i in range(0, len(qframe) - 1, 2):
-            mark, space = qframe[i], qframe[i+1]
-            if abs(space - short_c) < abs(space - long_c):
-                bits.append('0')
-            else:
-                bits.append('1')
-        if bits:
-            bitstr = ''.join(bits)
-            print(f"  {bitstr}")
-            print(f"  0x{int(bitstr, 2):0{(len(bitstr)+3)//4}X}  ({len(bitstr)} bits)")
+    print(f"\nTotal output pulses: {len(full)}")
 
 if __name__ == '__main__':
     main()

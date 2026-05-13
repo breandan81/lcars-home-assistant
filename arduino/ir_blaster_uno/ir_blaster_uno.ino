@@ -14,12 +14,18 @@
  *   RF receiver     DATA → Pin 2,   VCC → 5V,  GND → GND   (XY-MK-5V)
  *     Pin 2 = INT0 — required by RCSwitch for reliable reception
  *
+ *   Garage remote   Button pin → Pin 4,  remote GND → Arduino GND
+ *     Power remote from Arduino 3.3V pin instead of its CR2032.
+ *     Remote uses internal pull-down; button press pulls pin HIGH.
+ *     Pin 4 idles as INPUT (hi-Z); pulses OUTPUT HIGH for 1s to press button.
+ *
  * Serial protocol — 9600 baud, newline-terminated:
  *   PING\n                           → PONG\n
  *   SEND  <PROTO> <HEXCODE> <BITS>\n → OK\n          (IR send)
  *   LEARN\n                          → CODE <PROTO> <HEXCODE> <BITS>\n  (IR learn)
  *   RFSEND <HEXCODE> <BITS> <PROTO>\n → OK\n         (RF send)
  *   RFLEARN\n                        → RFCODE <HEXCODE> <BITS> <PROTO>\n (RF learn)
+ *   GDOOR\n                          → OK\n          (garage door trigger)
  *   Any of the above → TIMEOUT\n or ERROR msg\n on failure
  *
  * Note on timer sharing:
@@ -35,6 +41,7 @@
 #define RF_SEND_PIN  10   // Any digital pin
 #define RF_RECV_PIN   2   // Must be an interrupt pin: 2 (INT0) or 3 (INT1)
                           // Pin 3 is taken by IRremote send, so use Pin 2.
+#define GARAGE_PIN    4   // Garage remote button hi-side; idles hi-Z, pulses LOW to trigger
 
 IRsend   irsend;                 // Send pin hardwired to Pin 3 in IRremote v2
 IRrecv   irrecv(IR_RECV_PIN);
@@ -47,6 +54,7 @@ void setup() {
   Serial.begin(9600);
   rf.enableTransmit(RF_SEND_PIN);
   rf.setRepeatTransmit(5);  // send each code 5× for reliability
+  pinMode(GARAGE_PIN, INPUT); // hi-Z until triggered
   // Receivers are enabled only on demand.
 }
 
@@ -62,10 +70,12 @@ void loop() {
 // ─── Dispatch ────────────────────────────────────────────────────────────────
 void handleCommand(const String& cmd) {
   if      (cmd == "PING")              Serial.println("PONG");
+  else if (cmd == "?")                 Serial.println("UNO_IR");
   else if (cmd.startsWith("SEND "))   doIRSend(cmd);
   else if (cmd == "LEARN")            doIRLearn();
   else if (cmd.startsWith("RFSEND ")) doRFSend(cmd);
   else if (cmd == "RFLEARN")          doRFLearn();
+  else if (cmd == "GDOOR")            doGarage();
   else                                 Serial.println("ERROR unknown command");
 }
 
@@ -192,6 +202,15 @@ void doRFLearn() {
 
   rf.disableReceive();
   Serial.println("TIMEOUT");
+}
+
+// ─── GARAGE DOOR ─────────────────────────────────────────────────────────────
+void doGarage() {
+  pinMode(GARAGE_PIN, OUTPUT);
+  digitalWrite(GARAGE_PIN, HIGH);
+  delay(1000);
+  pinMode(GARAGE_PIN, INPUT); // back to hi-Z
+  Serial.println("OK");
 }
 
 // ─── IR protocol name ────────────────────────────────────────────────────────
