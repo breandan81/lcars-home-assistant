@@ -521,12 +521,6 @@ async function fanCmd(command) {
     setIndicator('fan-indicator', 'on');
     setIndicator('rr-fan-indicator', 'on');
     _arduinoOnline();
-    // Highlight active speed button
-    ['fan-low','fan-med','fan-high'].forEach(id =>
-      document.getElementById(id)?.classList.remove('active')
-    );
-    const speedMap = { fan_low: 'fan-low', fan_medium: 'fan-med', fan_high: 'fan-high' };
-    if (speedMap[command]) document.getElementById(speedMap[command])?.classList.add('active');
   }
 }
 
