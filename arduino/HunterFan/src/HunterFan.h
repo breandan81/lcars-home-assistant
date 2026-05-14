@@ -22,13 +22,11 @@ public:
     uint16_t frameGapUs    = 26000; // µs gap between repeated frames
     uint8_t  repeats       = 3;     // how many times to repeat each transmission
 
-    // On AVR (Uno) disabling interrupts during TX is safe and keeps timing clean.
-    // On ESP8266/ESP32 it would stall the WiFi stack — leave false if using WiFi.
-#if defined(ESP8266) || defined(ESP32)
+    // Disabling interrupts during TX prevents WiFi ISR jitter on ESP but breaks
+    // micros() on AVR (Timer0 overflows stack up, causing _waitForNextClock to
+    // hang after ~2ms). On AVR the only relevant ISR is Timer0 (~1µs), which is
+    // well within the ±45µs tolerance, so leave interrupts enabled everywhere.
     bool disableInterruptsDuringTx = false;
-#else
-    bool disableInterruptsDuringTx = true;
-#endif
 
     // ── Construction ─────────────────────────────────────────────────────────
     // rxPin = 0xFF disables receive (TX-only mode).

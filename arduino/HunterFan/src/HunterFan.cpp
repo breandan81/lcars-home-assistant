@@ -131,9 +131,12 @@ bool HunterFan::receive(uint8_t* data, uint8_t maxBytes, uint8_t& bits,
 // ── Transmit ──────────────────────────────────────────────────────────────────
 
 void HF_IRAM HunterFan::_waitForNextClock() {
-    unsigned long entry = micros();
-    unsigned long phase = entry % clkUs;
-    unsigned long next  = entry + (clkUs - phase);
+    unsigned long next;
+    // Recompute if the % division itself took us past the target boundary.
+    do {
+        unsigned long now = micros();
+        next = now + (clkUs - now % clkUs);
+    } while ((long)(micros() - next) >= 0);
     while ((long)(micros() - next) < 0) {}
 }
 
