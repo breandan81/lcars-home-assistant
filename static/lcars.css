@@ -1,21 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Antonio:wght@100;300;400;700&display=swap');
 
 :root {
-  --orange:  #FF9900;
-  --tan:     #FFCC99;
-  --blue:    #9999CC;
-  --lt-blue: #99CCFF;
-  --red:     #CC3333;
-  --yellow:  #FFCC00;
-  --purple:  #CC99FF;
-  --green:   #33CC99;
-  --gold:    #FFB700;
-  --lilac:   #CC88CC;
-  --magenta: #FF44FF;
+  --orange:  #ff9900;  /* golden-orange */
+  --tan:     #ffcc99;  /* sunflower */
+  --blue:    #8899ff;  /* bluey */
+  --lt-blue: #99ccff;  /* ice */
+  --red:     #cc4444;  /* red */
+  --yellow:  #ffaa00;  /* gold */
+  --purple:  #cc99ff;  /* african-violet */
+  --green:   #999933;  /* green */
+  --gold:    #ffaa00;  /* gold */
+  --lilac:   #cc55ff;  /* lilac */
+  --magenta: #cc5599;  /* magenta */
   --bg:      #000000;
   --panel:   #0a0a1a;
-  --text:    #FF9900;
-  --dim:     #663300;
+  --text:    #ff9900;
+  --dim:     #554422;
   --sidebar: 160px;
   --hdr:     72px;
   --ftr:     52px;
