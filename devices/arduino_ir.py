@@ -22,24 +22,52 @@ logger = logging.getLogger(__name__)
 # ── Serial transport ──────────────────────────────────────────────────────────
 
 class _SerialTransport:
+    WATCHDOG_INTERVAL = 30   # seconds between health checks
+    BACKOFF_MAX       = 60   # seconds
+
     def __init__(self, port: str, baud: int = 9600):
         self.port = port
         self.baud = baud
-        self._ser = None
+        self._ser  = None
         self._lock = threading.Lock()
         self._connect()
+        threading.Thread(target=self._watchdog, daemon=True, name="serial-watchdog").start()
 
     def _connect(self):
+        # Close cleanly first so the old object doesn't toggle DTR on GC.
+        try:
+            if self._ser is not None:
+                self._ser.close()
+        except Exception:
+            pass
+        self._ser = None
         try:
             import serial as _serial
             self._ser = _serial.Serial(self.port, self.baud, timeout=2)
-            # Uno resets on DTR assert — wait for bootloader to finish.
+            # Opening the port asserts DTR → Uno resets; wait for bootloader.
             time.sleep(2.2)
             self._ser.reset_input_buffer()
-            logger.info(f"Serial connected: {self.port} @ {self.baud}")
+            logger.info("Serial connected: %s @ %d", self.port, self.baud)
         except Exception as e:
-            logger.error(f"Serial connect failed ({self.port}): {e}")
+            logger.error("Serial connect failed (%s): %s", self.port, e)
             self._ser = None
+
+    def _watchdog(self):
+        backoff = 1
+        while True:
+            time.sleep(self.WATCHDOG_INTERVAL)
+            if self.ping():
+                backoff = 1
+                continue
+            logger.warning("Serial watchdog: %s unresponsive, reconnecting in %ds", self.port, backoff)
+            time.sleep(backoff)
+            with self._lock:
+                self._connect()
+            if self.ping():
+                logger.info("Serial watchdog: %s recovered", self.port)
+                backoff = 1
+            else:
+                backoff = min(backoff * 2, self.BACKOFF_MAX)
 
     def _cmd(self, line: str, read_timeout: float = 2.0) -> str:
         with self._lock:
@@ -53,7 +81,7 @@ class _SerialTransport:
                 self._ser.write((line + '\n').encode())
                 return self._ser.readline().decode(errors='replace').strip()
             except Exception as e:
-                logger.error(f"Serial cmd '{line}' failed: {e}")
+                logger.error("Serial cmd '%s' failed: %s", line, e)
                 self._ser = None
                 return f"ERROR {e}"
 
