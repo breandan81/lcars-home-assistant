@@ -450,6 +450,16 @@ async def index():
 
 # ── Background polling ────────────────────────────────────────────────────────
 
+@app.on_event("shutdown")
+async def shutdown():
+    # Close serial port cleanly so DTR doesn't toggle and reset the Arduino.
+    transport = getattr(arduino, '_transport', None)
+    if transport and hasattr(transport, '_ser') and transport._ser:
+        try:
+            transport._ser.close()
+        except Exception:
+            pass
+
 @app.on_event("startup")
 async def startup():
     asyncio.create_task(_poll_loop())

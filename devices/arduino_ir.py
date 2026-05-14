@@ -34,15 +34,18 @@ class _SerialTransport:
         self._connect()
         threading.Thread(target=self._watchdog, daemon=True, name="serial-watchdog").start()
 
-    def _connect(self):
-        import serial as _serial
-        # Close cleanly first so the old object doesn't toggle DTR on GC.
+    def close(self):
         try:
             if self._ser is not None:
                 self._ser.close()
         except Exception:
             pass
         self._ser = None
+
+    def _connect(self):
+        import serial as _serial
+        # Close cleanly first so the old object doesn't toggle DTR on GC.
+        self.close()
 
         # Try configured port first, then scan all ttyUSB*/ttyACM* ports.
         # Only the IR blaster sketch responds PONG to PING, so this isolates
