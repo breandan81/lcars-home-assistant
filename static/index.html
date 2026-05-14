@@ -113,7 +113,10 @@
 
           <!-- Ceiling Fan -->
           <div class="panel">
-            <div class="panel-header green">Ceiling Fan <span style="font-size:0.6rem;color:var(--dim)">(RF not yet working)</span></div>
+            <div class="panel-header green">
+              <span class="indicator" id="rr-fan-indicator"></span>
+              Ceiling Fan
+            </div>
             <div class="panel-body">
               <div class="ctrl-row">
                 <button class="lbtn green power-btn" onclick="fanCmd('fan_high')" title="Power / High">⏻</button>
@@ -324,9 +327,6 @@
             <div class="ctrl-row">
               <span class="ctrl-label">Direction</span>
               <button class="lbtn dim" onclick="fanCmd('direction')">Reverse</button>
-            </div>
-            <div style="margin-top:10px;font-size:0.65rem;color:var(--dim)">
-              Codes not yet learned — use the ◎ Learn page to capture them.
             </div>
           </div>
         </div>

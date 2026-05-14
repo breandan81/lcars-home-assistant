@@ -35,6 +35,20 @@ void HunterFan::begin() {
     }
 }
 
+void HunterFan::enableReceive(uint8_t pin) {
+    _rxPin = pin;
+    _hfInstance = this;
+    pinMode(_rxPin, INPUT);
+    attachInterrupt(digitalPinToInterrupt(_rxPin), _hfISR, CHANGE);
+}
+
+void HunterFan::disableReceive() {
+    if (_rxPin != 0xFF) {
+        detachInterrupt(digitalPinToInterrupt(_rxPin));
+        _rxPin = 0xFF;
+    }
+}
+
 void HF_IRAM HunterFan::_onEdge() {
     _pulseStamp = micros();
     _newPulse   = true;

@@ -515,9 +515,11 @@ async function fanCmd(command) {
   if (r.error) {
     toast(`Fan error: ${r.error}`, 'var(--red)');
     setIndicator('fan-indicator', 'err');
+    setIndicator('rr-fan-indicator', 'err');
   } else {
     toast(`Fan: ${command}`, 'var(--green)');
     setIndicator('fan-indicator', 'on');
+    setIndicator('rr-fan-indicator', 'on');
     _arduinoOnline();
     // Highlight active speed button
     ['fan-low','fan-med','fan-high'].forEach(id =>
@@ -593,8 +595,9 @@ function learnSelectDevice(devId) {
 
   const badge = document.getElementById('learn-dev-badge');
   const dev = learnState.device;
-  badge.textContent = dev.type.toUpperCase();
-  badge.className = 'code-badge ' + (dev.type === 'rf' ? 'rf-badge' : 'ir-badge');
+  badge.textContent = dev.type === 'hunter_fan' ? 'HUNTER RF' : dev.type.toUpperCase();
+  const isRfLike = dev.type === 'rf' || dev.type === 'hunter_fan';
+  badge.className = 'code-badge ' + (isRfLike ? 'rf-badge' : 'ir-badge');
   badge.style.display = '';
 
   const cmdSel = document.getElementById('learn-cmd-select');
@@ -647,7 +650,10 @@ function _learnShowCurrentCode(cmdName) {
 function _learnUpdateHint() {
   const el = document.getElementById('learn-hint');
   if (!learnState.device) return;
-  if (learnState.device.type === 'rf') {
+  const t = learnState.device.type;
+  if (t === 'hunter_fan') {
+    el.textContent = 'Press the button on your Hunter fan remote near the RF receiver module on D7.';
+  } else if (t === 'rf') {
     el.textContent = 'Hold your 433 MHz remote near the receiver module and press the button when ready.';
   } else {
     el.textContent = 'Point your IR remote directly at the Arduino receiver and press the button when ready.';
@@ -663,9 +669,10 @@ async function learnCapture() {
   btn.disabled = true;
   btn.textContent = '⏳ Listening…';
   resultEl.innerHTML = '<span style="color:var(--yellow)">Waiting for signal — up to 12 s…</span>';
-  toast(device.type === 'rf' ? 'Press RF remote button…' : 'Press IR remote button…', 'var(--yellow)');
+  const rfLike = device.type === 'rf' || device.type === 'hunter_fan';
+  toast(rfLike ? 'Press RF remote button…' : 'Press IR remote button…', 'var(--yellow)');
 
-  const endpoint = device.type === 'rf' ? '/api/rf/learn' : '/api/ir/learn';
+  const endpoint = (device.type === 'rf' || device.type === 'hunter_fan') ? '/api/rf/learn' : '/api/ir/learn';
   const r = await api('GET', endpoint, { device: device.id, command: commandName });
 
   btn.disabled = false;

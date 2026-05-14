@@ -57,6 +57,11 @@ public:
     // Format decoded bytes as a hex string (static buffer — not reentrant).
     static const char* toHex(const uint8_t* data, uint8_t bytes);
 
+    // Enable/disable receive on demand — allows sharing the interrupt pin with
+    // other libraries (e.g. RCSwitch) by detaching/reattaching as needed.
+    void enableReceive(uint8_t pin);
+    void disableReceive();
+
     // ── Internal ISR trampoline ───────────────────────────────────────────────
     // Called from a global ISR; do not call directly.
     void _onEdge();

@@ -1,49 +1,58 @@
 /*
- * LCARS IR Blaster — ESP32 / ESP8266 sketch
+ * LCARS IR Blaster — ESP8266 (NodeMCU) sketch
  *
  * Libraries (install via Arduino Library Manager):
- *   - IRremoteESP8266  (also works on ESP32)
- *   - ESPAsyncWebServer + AsyncTCP (ESP32) or ESPAsyncTCP (ESP8266)
+ *   - IRremoteESP8266
+ *   - ESPAsyncWebServer + ESPAsyncTCP
  *   - ArduinoJson
+ *   - HunterFan  (local — symlinked from arduino/HunterFan)
  *
  * Wiring:
- *   IR LED   → GPIO 4  (via 100Ω resistor to GND)  ← IR_SEND_PIN
- *   IR Recv  → GPIO 14 (DATA pin of TSOP38238)      ← IR_RECV_PIN
- *   TSOP VCC → 3.3 V,  TSOP GND → GND
- *
- *   Garage remote   Button pin (hi side) → GPIO 5 (D1 on NodeMCU)  ← GARAGE_PIN
- *     Power remote from ESP 3.3V pin instead of its CR2032.
- *     GPIO 5 idles as INPUT (hi-Z); pulses OUTPUT LOW for 200ms to press button.
+ *   IR LED        → D2  (GPIO4,  via 100Ω to GND)
+ *   IR Recv DATA  → D5  (GPIO14, TSOP38238)
+ *   Garage button → D1  (GPIO5;  idles hi-Z, pulses LOW 200ms)
+ *   RF TX DATA    → D6  (GPIO12, 433 MHz transmitter module)
+ *   RF RX DATA    → D7  (GPIO13, 433 MHz receiver module)
  *
  * HTTP API (port 80):
  *   GET  /ping              → { "ok": true, "ip": "..." }
- *   POST /ir/send           → body: { "protocol": "NEC", "code": "0x807F817E", "bits": 32 }
- *   GET  /ir/learn          → waits up to 10s for an IR signal, returns { "code": "0x..." }
- *   GET  /ir/learn/raw      → returns raw timing data
+ *   POST /ir/send           → { "protocol": "NEC", "code": "0x807F817E", "bits": 32 }
+ *   GET  /ir/learn          → waits up to 10s for IR signal → { "code": "0x..." }
  *   POST /garage/trigger    → { "triggered": true }
+ *   POST /fan/send          → { "hex": "A6FF346CBB18067F80", "bits": 66 }
+ *   GET  /fan/learn         → waits for Hunter fan packet → { "hex": "...", "bits": N }
+ *                             optional ?timeout=<ms>  (default 12000)
  */
 
 #include <Arduino.h>
-#include <WiFi.h>              // For ESP8266: #include <ESP8266WiFi.h>
-#include <ESPAsyncWebServer.h> // For ESP8266: same library works
+#if defined(ESP32)
+#  include <WiFi.h>
+#elif defined(ESP8266)
+#  include <ESP8266WiFi.h>
+#endif
+#include <ESPAsyncWebServer.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
 #include <ArduinoJson.h>
+#include <HunterFan.h>
 
 // ─── Config ────────────────────────────────────────────────────────────────
 const char* WIFI_SSID     = "YOUR_SSID";
 const char* WIFI_PASSWORD = "YOUR_PASSWORD";
 
-const uint16_t IR_SEND_PIN = 4;   // GPIO connected to IR LED
-const uint16_t IR_RECV_PIN = 14;  // GPIO connected to TSOP receiver DATA pin
-const uint16_t GARAGE_PIN  = 5;   // GPIO5 = D1 on NodeMCU; idles hi-Z, pulses LOW to trigger
+const uint16_t IR_SEND_PIN = 4;   // D2
+const uint16_t IR_RECV_PIN = 14;  // D5
+const uint16_t GARAGE_PIN  = 5;   // D1; idles hi-Z, pulses LOW to trigger
+const uint16_t FAN_TX_PIN  = 12;  // D6 → RF TX module DATA
+const uint16_t FAN_RX_PIN  = 13;  // D7 → RF RX module DATA
 const uint16_t CAPTURE_BUF = 1024;
 
 // ─── Globals ───────────────────────────────────────────────────────────────
 IRsend   irsend(IR_SEND_PIN);
 IRrecv   irrecv(IR_RECV_PIN, CAPTURE_BUF, 15, true);
+HunterFan fan(FAN_TX_PIN, FAN_RX_PIN);
 AsyncWebServer server(80);
 
 bool     isLearning = false;
@@ -55,6 +64,7 @@ String   learnProtocol;
 void setup() {
   Serial.begin(115200);
   irsend.begin();
+  fan.begin();
   pinMode(GARAGE_PIN, INPUT); // hi-Z until triggered
 
   // Connect WiFi
@@ -136,6 +146,34 @@ void setup() {
     delay(200);
     pinMode(GARAGE_PIN, INPUT); // back to hi-Z
     req->send(200, "application/json", "{\"triggered\":true}");
+  });
+
+  // POST /fan/send  { "hex": "A6FF346CBB18067F80", "bits": 66 }
+  server.addHandler(new AsyncCallbackJsonWebHandler("/fan/send",
+    [](AsyncWebServerRequest* req, JsonVariant& body) {
+      const char* hex = body["hex"] | "";
+      uint8_t bits    = body["bits"] | 66;
+      fan.sendHex(hex, bits);
+      req->send(200, "application/json", "{\"sent\":true}");
+    }
+  ));
+
+  // GET /fan/learn?timeout=12000
+  server.on("/fan/learn", HTTP_GET, [](AsyncWebServerRequest* req) {
+    uint32_t ms = 12000;
+    if (req->hasParam("timeout"))
+      ms = (uint32_t)req->getParam("timeout")->value().toInt();
+
+    uint8_t data[16];
+    uint8_t bits = 0;
+    if (fan.receive(data, sizeof(data), bits, ms)) {
+      const char* hex = HunterFan::toHex(data, (bits + 7) / 8);
+      String json = String("{\"hex\":\"") + hex + "\",\"bits\":" + bits + "}";
+      req->send(200, "application/json", json);
+    } else {
+      req->send(200, "application/json",
+        "{\"error\":\"timeout — no Hunter fan signal received\"}");
+    }
   });
 
   // CORS for local dev

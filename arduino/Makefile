@@ -12,7 +12,7 @@ NIMROD_SKETCH ?= nimrod
 all: compile
 
 compile:
-	$(ARDUINO_CLI) compile --fqbn $(FQBN) $(SKETCH)
+	$(ARDUINO_CLI) compile --fqbn $(FQBN) --library HunterFan $(SKETCH)
 
 upload:
 	$(ARDUINO_CLI) upload --fqbn $(FQBN) --port $(PORT) $(SKETCH)
@@ -57,6 +57,15 @@ wire-upload:
 
 wire-flash: wire-compile wire-upload
 
+# ── IR Blaster (ESP8266 WiFi — IR + HunterFan) ───────────────────────────────
+ir-blaster-compile:
+	$(ARDUINO_CLI) compile --fqbn $(ESP_FQBN) --library HunterFan ir_blaster
+
+ir-blaster-upload:
+	$(ARDUINO_CLI) upload --fqbn $(ESP_FQBN) --port $(ESP_PORT) ir_blaster
+
+ir-blaster-flash: ir-blaster-compile ir-blaster-upload
+
 # ── HunterFan library test sketches ──────────────────────────────────────────
 LIB = --library HunterFan
 LIB_ESP_TX = HunterFan/examples/ESP8266_TX
@@ -99,6 +108,7 @@ uno-rx-flash: uno-rx-compile uno-rx-upload
 .PHONY: all compile upload flash esp-compile esp-upload esp-flash monitor esp-monitor \
         hunter-compile hunter-upload hunter-flash nimrod-compile nimrod-upload nimrod-flash \
         wire-compile wire-upload wire-flash \
+        ir-blaster-compile ir-blaster-upload ir-blaster-flash \
         esp-tx-compile esp-tx-upload esp-tx-flash \
         esp-rx-compile esp-rx-upload esp-rx-flash \
         uno-tx-compile uno-tx-upload uno-tx-flash \

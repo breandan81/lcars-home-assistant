@@ -134,6 +134,19 @@ class _SerialTransport:
                 return {"code": "0x" + parts[1], "bits": int(parts[2]), "protocol": int(parts[3])}
         return None
 
+    def send_fan(self, hex_str: str, bits: int = 66) -> Tuple[bool, str]:
+        hex_code = hex_str.upper().lstrip("0X") or "0"
+        resp = self._cmd(f"FANSEND {hex_code} {bits}")
+        return resp == "OK", resp
+
+    def learn_fan(self, timeout_ms: int = 12000) -> Optional[dict]:
+        resp = self._cmd("FANLEARN", read_timeout=timeout_ms / 1000 + 2.0)
+        if resp.startswith("FANCODE"):
+            parts = resp.split()
+            if len(parts) >= 3:
+                return {"code": parts[1], "bits": int(parts[2])}
+        return None
+
     def garage_trigger(self) -> bool:
         return self._cmd("GDOOR") == "OK"
 
@@ -182,6 +195,15 @@ class _HttpTransport:
 
     def learn_rf(self) -> Optional[dict]:
         return self._get("/rf/learn")
+
+    def send_fan(self, hex_str: str, bits: int = 66) -> Tuple[bool, str]:
+        return self._post("/fan/send", {"hex": hex_str, "bits": bits})
+
+    def learn_fan(self, timeout_ms: int = 12000) -> Optional[dict]:
+        data = self._get(f"/fan/learn?timeout={timeout_ms}", timeout=timeout_ms / 1000 + 5)
+        if data and "hex" in data:
+            return {"code": data["hex"], "bits": data.get("bits", 66)}
+        return None
 
     def garage_trigger(self) -> bool:
         ok, _ = self._post("/garage/trigger", {})
@@ -247,7 +269,12 @@ class ArduinoIRController:
             return {"error": f"Command '{command}' not found for '{device_id}'"}
 
         dev_type = dev.get("type", "ir")
-        if dev_type == "rf":
+        if dev_type == "hunter_fan":
+            bits = dev.get("bit_length", 66)
+            ok, msg = await asyncio.get_event_loop().run_in_executor(
+                None, self._transport.send_fan, code, bits
+            )
+        elif dev_type == "rf":
             bits     = dev.get("bit_length", 24)
             protocol = dev.get("protocol", 1)
             ok, msg  = await asyncio.get_event_loop().run_in_executor(
@@ -272,6 +299,10 @@ class ArduinoIRController:
     async def learn_rf_command(self, device_id: str, command_name: str) -> dict:
         if not self._transport:
             return {"error": "Arduino not configured"}
+        dev = self.devices_config.get(device_id, {})
+        if dev.get("type") == "hunter_fan":
+            result = await asyncio.get_event_loop().run_in_executor(None, self._transport.learn_fan)
+            return self._store_learned(result, device_id, command_name, "hunter_fan")
         result = await asyncio.get_event_loop().run_in_executor(None, self._transport.learn_rf)
         return self._store_learned(result, device_id, command_name, "rf")
 
