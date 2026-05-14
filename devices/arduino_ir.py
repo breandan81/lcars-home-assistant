@@ -11,6 +11,7 @@ Device type in config:
 """
 
 import asyncio
+import glob
 import logging
 import threading
 import time
@@ -34,6 +35,7 @@ class _SerialTransport:
         threading.Thread(target=self._watchdog, daemon=True, name="serial-watchdog").start()
 
     def _connect(self):
+        import serial as _serial
         # Close cleanly first so the old object doesn't toggle DTR on GC.
         try:
             if self._ser is not None:
@@ -41,16 +43,32 @@ class _SerialTransport:
         except Exception:
             pass
         self._ser = None
-        try:
-            import serial as _serial
-            self._ser = _serial.Serial(self.port, self.baud, timeout=2)
-            # Opening the port asserts DTR → Uno resets; wait for bootloader.
-            time.sleep(2.2)
-            self._ser.reset_input_buffer()
-            logger.info("Serial connected: %s @ %d", self.port, self.baud)
-        except Exception as e:
-            logger.error("Serial connect failed (%s): %s", self.port, e)
-            self._ser = None
+
+        # Try configured port first, then scan all ttyUSB*/ttyACM* ports.
+        # Only the IR blaster sketch responds PONG to PING, so this isolates
+        # it from any other Arduinos on the bus.
+        candidates = [self.port] if self.port else []
+        for pattern in ('/dev/ttyUSB*', '/dev/ttyACM*'):
+            for p in sorted(glob.glob(pattern)):
+                if p not in candidates:
+                    candidates.append(p)
+
+        for port in candidates:
+            try:
+                ser = _serial.Serial(port, self.baud, timeout=2)
+                time.sleep(2.2)  # wait for bootloader after DTR reset
+                ser.reset_input_buffer()
+                ser.write(b'PING\n')
+                if ser.readline().decode(errors='replace').strip() == 'PONG':
+                    self._ser = ser
+                    self.port = port
+                    logger.info("Arduino found at %s @ %d", port, self.baud)
+                    return
+                ser.close()
+            except Exception as e:
+                logger.debug("Port %s: %s", port, e)
+
+        logger.error("No Arduino found (tried: %s)", ', '.join(candidates))
 
     def _watchdog(self):
         backoff = 1
