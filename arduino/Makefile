@@ -57,6 +57,49 @@ wire-upload:
 
 wire-flash: wire-compile wire-upload
 
+# ── HunterFan library test sketches ──────────────────────────────────────────
+LIB = --library HunterFan
+LIB_ESP_TX = HunterFan/examples/ESP8266_TX
+LIB_ESP_RX = HunterFan/examples/ESP8266_RX
+LIB_UNO_TX = HunterFan/examples/Uno_TX
+LIB_UNO_RX = HunterFan/examples/Uno_RX
+
+esp-tx-compile:
+	$(ARDUINO_CLI) compile --fqbn $(ESP_FQBN) $(LIB) $(LIB_ESP_TX)
+
+esp-tx-upload:
+	$(ARDUINO_CLI) upload --fqbn $(ESP_FQBN) --port $(ESP_PORT) $(LIB_ESP_TX)
+
+esp-tx-flash: esp-tx-compile esp-tx-upload
+
+esp-rx-compile:
+	$(ARDUINO_CLI) compile --fqbn $(ESP_FQBN) $(LIB) $(LIB_ESP_RX)
+
+esp-rx-upload:
+	$(ARDUINO_CLI) upload --fqbn $(ESP_FQBN) --port $(ESP_PORT) $(LIB_ESP_RX)
+
+esp-rx-flash: esp-rx-compile esp-rx-upload
+
+uno-tx-compile:
+	$(ARDUINO_CLI) compile --fqbn $(FQBN) $(LIB) $(LIB_UNO_TX)
+
+uno-tx-upload:
+	$(ARDUINO_CLI) upload --fqbn $(FQBN) --port $(PORT) $(LIB_UNO_TX)
+
+uno-tx-flash: uno-tx-compile uno-tx-upload
+
+uno-rx-compile:
+	$(ARDUINO_CLI) compile --fqbn $(FQBN) $(LIB) $(LIB_UNO_RX)
+
+uno-rx-upload:
+	$(ARDUINO_CLI) upload --fqbn $(FQBN) --port $(PORT) $(LIB_UNO_RX)
+
+uno-rx-flash: uno-rx-compile uno-rx-upload
+
 .PHONY: all compile upload flash esp-compile esp-upload esp-flash monitor esp-monitor \
         hunter-compile hunter-upload hunter-flash nimrod-compile nimrod-upload nimrod-flash \
-        wire-compile wire-upload wire-flash
+        wire-compile wire-upload wire-flash \
+        esp-tx-compile esp-tx-upload esp-tx-flash \
+        esp-rx-compile esp-rx-upload esp-rx-flash \
+        uno-tx-compile uno-tx-upload uno-tx-flash \
+        uno-rx-compile uno-rx-upload uno-rx-flash
