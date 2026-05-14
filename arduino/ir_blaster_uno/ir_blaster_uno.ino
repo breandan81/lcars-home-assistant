@@ -43,12 +43,15 @@
 #include <IRremote.h>
 #include <RCSwitch.h>
 #include <HunterFan.h>
+#include <DHT.h>
 
 #define IR_RECV_PIN  11   // Any digital pin except 3
 #define RF_SEND_PIN  10   // Any digital pin
 #define RF_RECV_PIN   2   // INT0 — shared between RCSwitch and HunterFan RX (mutual exclusion)
 #define FAN_SEND_PIN  9   // Hunter fan RF TX module
 #define GARAGE_PIN    4   // Garage remote button hi-side; idles hi-Z, pulses LOW to trigger
+#define DHT_PIN       7   // DHT11 DATA pin (10kΩ pull-up to 5V)
+#define DHT_TYPE      DHT11
 
 IRsend   irsend;                 // Send pin hardwired to Pin 3 in IRremote v2
 IRrecv   irrecv(IR_RECV_PIN);
@@ -56,6 +59,7 @@ decode_results irResults;
 
 RCSwitch rf;
 HunterFan fan(FAN_SEND_PIN);     // TX-only; RX enabled on demand via enableReceive()
+DHT dht(DHT_PIN, DHT_TYPE);
 
 // ─── Setup ──────────────────────────────────────────────────────────────────
 void setup() {
@@ -63,6 +67,7 @@ void setup() {
   rf.enableTransmit(RF_SEND_PIN);
   rf.setRepeatTransmit(5);  // send each code 5× for reliability
   fan.begin();               // sets up TX pin; RX attached on demand
+  dht.begin();
   pinMode(GARAGE_PIN, INPUT); // hi-Z until triggered
   // Receivers are enabled only on demand.
 }
@@ -87,6 +92,7 @@ void handleCommand(const String& cmd) {
   else if (cmd.startsWith("FANSEND ")) doFanSend(cmd);
   else if (cmd == "FANLEARN")          doFanLearn();
   else if (cmd == "GDOOR")             doGarage();
+  else if (cmd == "TEMP")              doTemp();
   else                                  Serial.println("ERROR unknown command");
 }
 
@@ -263,6 +269,21 @@ void doGarage() {
   delay(1000);
   pinMode(GARAGE_PIN, INPUT); // back to hi-Z
   Serial.println("OK");
+}
+
+// ─── TEMP / HUMIDITY ─────────────────────────────────────────────────────────
+// TEMP  →  TEMP <celsius> <humidity>   (one decimal place each)
+void doTemp() {
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  if (isnan(h) || isnan(t)) {
+    Serial.println("ERROR DHT read failed");
+    return;
+  }
+  Serial.print("TEMP ");
+  Serial.print(t, 1);
+  Serial.print(" ");
+  Serial.println(h, 1);
 }
 
 // ─── IR protocol name ────────────────────────────────────────────────────────

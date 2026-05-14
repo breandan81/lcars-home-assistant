@@ -147,6 +147,14 @@ class _SerialTransport:
                 return {"code": parts[1], "bits": int(parts[2])}
         return None
 
+    def read_temp(self) -> Optional[dict]:
+        resp = self._cmd("TEMP")
+        if resp.startswith("TEMP"):
+            parts = resp.split()
+            if len(parts) == 3:
+                return {"temp_c": float(parts[1]), "humidity": float(parts[2])}
+        return None
+
     def garage_trigger(self) -> bool:
         return self._cmd("GDOOR") == "OK"
 
@@ -195,6 +203,12 @@ class _HttpTransport:
 
     def learn_rf(self) -> Optional[dict]:
         return self._get("/rf/learn")
+
+    def read_temp(self) -> Optional[dict]:
+        data = self._get("/temp")
+        if data and "temp_c" in data:
+            return data
+        return None
 
     def send_fan(self, hex_str: str, bits: int = 66) -> Tuple[bool, str]:
         return self._post("/fan/send", {"hex": hex_str, "bits": bits})
@@ -320,6 +334,11 @@ class ArduinoIRController:
             return {"error": "Arduino not configured"}
         ok = await asyncio.get_event_loop().run_in_executor(None, self._transport.garage_trigger)
         return {"triggered": True} if ok else {"error": "Arduino did not confirm GDOOR"}
+
+    async def read_temp(self) -> Optional[dict]:
+        if not self._transport:
+            return None
+        return await asyncio.get_event_loop().run_in_executor(None, self._transport.read_temp)
 
     async def ping(self) -> bool:
         if not self._transport:

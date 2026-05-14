@@ -52,6 +52,9 @@ function handlePush(msg) {
     const d = state.kasa.find(k => k.alias === msg.alias);
     if (d) { d.is_on = msg.is_on; renderKasa(); }
   }
+  if (msg.type === 'poll_temp') {
+    renderTemp(msg);
+  }
 }
 
 function setWsDot(ok) {
@@ -171,6 +174,25 @@ function setIndicator(id, state) {
   const el = document.getElementById(id);
   if (!el) return;
   el.className = 'indicator ' + (state === 'on' ? 'on' : state === 'warn' ? 'warn' : state === 'err' ? 'err' : '');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TEMP / HUMIDITY
+// ════════════════════════════════════════════════════════════════════════════
+
+function renderTemp(d) {
+  if (!d || d.error) { setIndicator('temp-indicator', 'err'); return; }
+  const c = d.temp_c;
+  const f = (c * 9 / 5 + 32).toFixed(1);
+  document.getElementById('room-temp').textContent     = c.toFixed(1);
+  document.getElementById('room-temp-f').textContent   = f;
+  document.getElementById('room-humidity').textContent = d.humidity.toFixed(0);
+  setIndicator('temp-indicator', 'on');
+}
+
+async function tempRefresh() {
+  const d = await api('GET', '/api/arduino/temp');
+  renderTemp(d);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1061,6 +1083,7 @@ function rgbToHsv(r, g, b) {
 
   _setArduinoStatus(pingData?.online === true);
   if (!pingData?.online) toast('Arduino offline — IR/RF unavailable', 'var(--red)');
+  else tempRefresh();
 
   if (samsungData && !samsungData.error) renderSamsungStatus(samsungData);
 

@@ -202,6 +202,13 @@ async def ir_learn(device: str, command: str):
 async def rf_learn(device: str, command: str):
     return await arduino.learn_rf_command(device, command)
 
+@app.get("/api/arduino/temp")
+async def arduino_temp():
+    result = await arduino.read_temp()
+    if result:
+        return result
+    return {"error": "DHT read failed or Arduino not connected"}
+
 @app.get("/api/ir/ping")
 async def ir_ping():
     ok = await arduino.ping()
@@ -459,8 +466,10 @@ async def _poll_loop():
     except Exception as e:
         logger.error(f"Initial discovery error: {e}")
 
+    temp_tick = 0
     while True:
         await asyncio.sleep(15)
+        temp_tick += 1
         try:
             kasa_status = await kasa.get_all_status()
             await broadcast({"type": "poll_kasa", "devices": kasa_status})
@@ -472,3 +481,11 @@ async def _poll_loop():
             await broadcast({"type": "poll_ecoflow", "status": eco_status})
         except Exception as e:
             logger.debug(f"EcoFlow poll: {e}")
+
+        if temp_tick % 4 == 0:  # every 60s (4 × 15s)
+            try:
+                temp = await arduino.read_temp()
+                if temp:
+                    await broadcast({"type": "poll_temp", **temp})
+            except Exception as e:
+                logger.debug(f"Temp poll: {e}")

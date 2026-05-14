@@ -130,6 +130,22 @@
             </div>
           </div>
 
+          <!-- Temp / Humidity -->
+          <div class="panel">
+            <div class="panel-header lt-blue">
+              <span class="indicator" id="temp-indicator"></span>
+              Environment
+            </div>
+            <div class="panel-body" style="gap:4px">
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <div class="temp-big"><span id="room-temp">--</span><span class="temp-unit">°C</span></div>
+                <div style="font-size:0.75rem;color:var(--lt-blue)"><span id="room-temp-f">--</span>°F</div>
+              </div>
+              <div style="font-size:0.8rem;color:var(--blue)">Humidity: <span id="room-humidity">--</span>%</div>
+              <button class="lbtn dim" style="margin-top:6px;font-size:0.65rem" onclick="tempRefresh()">↺ Refresh</button>
+            </div>
+          </div>
+
           <!-- Movie Scene + Soundbar -->
           <div class="panel">
             <div class="panel-header gold">Scenes &amp; Audio</div>
