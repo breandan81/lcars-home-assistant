@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, List
 
 import yaml
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -45,6 +45,14 @@ philips   = PhilipsTVController(config.get("philips_tv") or {})
 
 # App ------------------------------------------------------------------------
 app = FastAPI(title="LCARS Home Control", docs_url="/api/docs")
+
+@app.middleware("http")
+async def no_cache_static(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static/") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 ws_clients: List[WebSocket] = []
 

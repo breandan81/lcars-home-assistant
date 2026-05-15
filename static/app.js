@@ -451,48 +451,47 @@ async function ecoFan(speed) {
 }
 
 async function ecoTempAdj(delta) {
+  // Always work in Celsius (16–30°C)
   state.ecoSetTemp = Math.max(16, Math.min(30, state.ecoSetTemp + delta));
-  document.getElementById('eco-set-temp').textContent = state.ecoSetTemp;
+  document.getElementById('eco-set-temp').textContent = state.ecoSetTemp + '°C';
+  const el2 = document.getElementById('rr-eco-set-temp');
+  if (el2) el2.textContent = state.ecoSetTemp + '°C';
   const r = await api('POST', '/api/climate/temperature', { temp: state.ecoSetTemp });
   if (r.error) toast('Temp error: ' + r.error, 'var(--red)');
 }
 
 function renderEcoflow() {
   const d = state.ecoflow;
-  const s = d.state || {};
-
   const connected = d.connected;
-  setIndicator('eco-indicator', connected ? 'on' : 'warn');
+  setIndicator('eco-indicator',    connected ? 'on' : 'warn');
+  setIndicator('rr-eco-indicator', connected ? 'on' : 'warn');
 
-  const note = document.getElementById('eco-setup-note');
-  note.style.display = (!connected && d.mode === 'mqtt_local') ? '' : 'none';
+  document.getElementById('eco-setup-note').style.display = 'none';
 
-  const tempText    = s.temp    != null ? s.temp    : '--';
-  const setTempText = s.setTemp != null ? s.setTemp : '--';
+  // Always display in Celsius
+  const tempText    = d.temp_c != null ? `${d.temp_c}°C` : '--';
+  const setTempText = d.set_temp_c != null ? `${d.set_temp_c}°C` : '--';
   document.getElementById('eco-temp').textContent     = tempText;
-  document.getElementById('eco-set-temp').textContent = setTempText;
+  document.getElementById('eco-set-temp').textContent = d.set_temp_c != null ? `${d.set_temp_c}°C` : '--';
   const rrTemp    = document.getElementById('rr-eco-temp');
   const rrSetTemp = document.getElementById('rr-eco-set-temp');
   if (rrTemp)    rrTemp.textContent    = tempText;
   if (rrSetTemp) rrSetTemp.textContent = setTempText;
-  if (s.setTemp) state.ecoSetTemp = s.setTemp;
+  if (d.set_temp_c != null) state.ecoSetTemp = d.set_temp_c;
 
-  const modeNames = ['Cool', 'Heat', 'Fan'];
-  const modeText = s.workMode != null ? modeNames[s.workMode] || '' : '';
+  const modeText = d.mode ? d.mode.charAt(0).toUpperCase() + d.mode.slice(1) : '';
   document.getElementById('eco-mode-label').textContent = modeText;
   const rrModeLabel = document.getElementById('rr-eco-mode-label');
   if (rrModeLabel) rrModeLabel.textContent = modeText;
-  setIndicator('rr-eco-indicator', connected ? 'on' : 'warn');
 
   const table = document.getElementById('eco-table');
   const rows = [
-    ['Status',       d.connected ? 'MQTT Connected' : 'Not Connected'],
-    ['Serial',       d.serial_number || '--'],
-    ['Battery',      s.batSoc    != null ? s.batSoc + '%' : '--'],
-    ['Charging',     s.batInputWatts != null ? s.batInputWatts + 'W' : '--'],
-    ['Draw',         s.outWatts  != null ? s.outWatts + 'W' : '--'],
-    ['Fan Level',    s.fanLevel  != null ? ['Low','Mid','High'][s.fanLevel] || s.fanLevel : '--'],
-    ['Compressor',   s.condenser ? 'ON' : (s.condenser === false ? 'OFF' : '--')],
+    ['Status',     connected ? 'MQTT Connected' : 'Not Connected'],
+    ['Power',      d.power != null ? (d.power ? 'ON' : 'OFF') : '--'],
+    ['Mode',       modeText || '--'],
+    ['Fan',        d.fan   || '--'],
+    ['Battery',    d.battery_pct != null ? d.battery_pct + '%' : '--'],
+    ['AC Draw',    d.ac_watts    != null ? d.ac_watts + 'W'    : '--'],
   ];
   table.innerHTML = rows.map(([k, v]) =>
     `<tr><td>${k}</td><td>${v}</td></tr>`
