@@ -429,6 +429,31 @@ async function ecoRefresh() {
   renderEcoflow();
 }
 
+async function loadSchedule() {
+  const s = await api('GET', '/api/climate/schedule');
+  if (s.error) return;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el[el.type === 'checkbox' ? 'checked' : 'value'] = v; };
+  set('sched-enabled',    s.morning_on_enabled);
+  set('sched-time',       s.morning_on_time ?? '07:00');
+  set('sched-setpoint',   s.morning_on_setpoint ?? 22);
+  set('automax-enabled',  s.auto_max_enabled);
+  set('automax-threshold', s.auto_max_threshold ?? 6);
+}
+
+async function saveSchedule() {
+  const g = id => document.getElementById(id);
+  const params = {
+    morning_on_enabled:  g('sched-enabled').checked,
+    morning_on_time:     g('sched-time').value,
+    morning_on_setpoint: parseInt(g('sched-setpoint').value, 10),
+    auto_max_enabled:    g('automax-enabled').checked,
+    auto_max_threshold:  parseInt(g('automax-threshold').value, 10),
+  };
+  const r = await api('POST', '/api/climate/schedule', params);
+  const el = g('sched-status');
+  if (el) { el.textContent = r.error ? 'Error saving' : 'Saved'; setTimeout(() => { el.textContent = ''; }, 3000); }
+}
+
 async function ecoPower(on) {
   setAction(`Wave 2: ${on ? 'ON' : 'OFF'}`);
   const r = await api('POST', '/api/climate/power', { state: on });
@@ -448,6 +473,12 @@ async function ecoFan(speed) {
   setAction(`Fan: ${speed}`);
   const r = await api('POST', '/api/climate/fan', { speed });
   if (r.error) toast('Fan error: ' + r.error, 'var(--red)');
+}
+
+async function ecoSubMode(mode) {
+  const r = await api('POST', '/api/climate/submode', { mode });
+  if (r.error) toast('SubMode error: ' + r.error, 'var(--red)');
+  else toast('AC: ' + mode.toUpperCase(), 'var(--yellow)');
 }
 
 async function ecoTempAdj(delta) {
@@ -479,16 +510,24 @@ function renderEcoflow() {
   if (rrSetTemp) rrSetTemp.textContent = setTempText;
   if (d.set_temp_c != null) state.ecoSetTemp = d.set_temp_c;
 
-  const modeText = d.mode ? d.mode.charAt(0).toUpperCase() + d.mode.slice(1) : '';
+  const isMax    = d.sub_mode === 'max';
+  const modeText = isMax ? 'MAX' : (d.mode ? d.mode.charAt(0).toUpperCase() + d.mode.slice(1) : '');
   document.getElementById('eco-mode-label').textContent = modeText;
   const rrModeLabel = document.getElementById('rr-eco-mode-label');
   if (rrModeLabel) rrModeLabel.textContent = modeText;
+
+  // Highlight MAX button when active
+  ['mode-max', 'rr-mode-max'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.outline = isMax ? '2px solid var(--yellow)' : '';
+  });
 
   const table = document.getElementById('eco-table');
   const rows = [
     ['Status',     connected ? 'MQTT Connected' : 'Not Connected'],
     ['Power',      d.power != null ? (d.power ? 'ON' : 'OFF') : '--'],
-    ['Mode',       modeText || '--'],
+    ['Mode',       d.mode || '--'],
+    ['Sub-mode',   d.sub_mode || '--'],
     ['Fan',        d.fan   || '--'],
     ['Battery',    d.battery_pct != null ? d.battery_pct + '%' : '--'],
     ['AC Draw',    d.ac_watts    != null ? d.ac_watts + 'W'    : '--'],
@@ -1079,6 +1118,7 @@ function rgbToHsv(r, g, b) {
   if (Array.isArray(tuyaData))  { state.tuya = tuyaData;     renderTuya(); }
   if (Array.isArray(groupData)) { state.groups = groupData;  renderGroups(); }
   if (ecoData && !ecoData.error){ state.ecoflow = ecoData;   renderEcoflow(); }
+  loadSchedule();
 
   _setArduinoStatus(pingData?.online === true);
   if (!pingData?.online) toast('Arduino offline — IR/RF unavailable', 'var(--red)');

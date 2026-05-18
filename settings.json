@@ -1,0 +1,7 @@
+{
+  "morning_on_enabled": true,
+  "morning_on_time": "05:30",
+  "morning_on_setpoint": 22,
+  "auto_max_enabled": true,
+  "auto_max_threshold": 6
+}

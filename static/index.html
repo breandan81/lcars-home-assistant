@@ -101,6 +101,7 @@
                 <button class="lbtn blue"    onclick="ecoMode('cool')">Cool</button>
                 <button class="lbtn orange"  onclick="ecoMode('heat')">Heat</button>
                 <button class="lbtn lt-blue" onclick="ecoMode('fan')">Fan</button>
+                <button class="lbtn yellow"  onclick="ecoSubMode('max')" id="rr-mode-max">MAX</button>
               </div>
               <div class="ctrl-row" style="margin-top:6px">
                 <span class="ctrl-label">Fan</span>
@@ -293,6 +294,7 @@
                   <button class="lbtn blue"    onclick="ecoMode('cool')" id="mode-cool">Cool</button>
                   <button class="lbtn orange"  onclick="ecoMode('heat')" id="mode-heat">Heat</button>
                   <button class="lbtn lt-blue" onclick="ecoMode('fan')"  id="mode-fan">Fan</button>
+                  <button class="lbtn yellow"  onclick="ecoSubMode('max')" id="mode-max">MAX</button>
                 </div>
                 <div class="ctrl-row">
                   <span class="ctrl-label">Fan</span>
@@ -305,6 +307,34 @@
                 </div>
                 <!-- Status table -->
                 <table class="data-table" id="eco-table" style="margin-top:12px"></table>
+                <!-- Schedule & Auto -->
+                <div style="margin-top:14px;border-top:1px solid var(--dim);padding-top:10px">
+                  <div style="font-size:0.65rem;color:var(--yellow);margin-bottom:8px;font-weight:700;letter-spacing:0.08em">SCHEDULE &amp; AUTO</div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+                    <label style="display:flex;align-items:center;gap:5px;font-size:0.72rem;cursor:pointer">
+                      <input type="checkbox" id="sched-enabled"> Weekday morning on at
+                    </label>
+                    <input type="time" id="sched-time" value="07:00"
+                      style="background:var(--dark);color:var(--text);border:1px solid var(--dim);padding:2px 6px;border-radius:3px;font-size:0.72rem">
+                    <label style="font-size:0.72rem">setpoint
+                      <input type="number" id="sched-setpoint" min="16" max="30" value="22"
+                        style="width:42px;background:var(--dark);color:var(--text);border:1px solid var(--dim);padding:2px 4px;border-radius:3px;font-size:0.72rem;margin-left:4px">°C
+                    </label>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+                    <label style="display:flex;align-items:center;gap:5px;font-size:0.72rem;cursor:pointer">
+                      <input type="checkbox" id="automax-enabled"> Auto-MAX when ambient &gt;
+                    </label>
+                    <label style="font-size:0.72rem">
+                      <input type="number" id="automax-threshold" min="1" max="20" value="6"
+                        style="width:38px;background:var(--dark);color:var(--text);border:1px solid var(--dim);padding:2px 4px;border-radius:3px;font-size:0.72rem">°C over setpoint
+                    </label>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <button class="lbtn green" onclick="saveSchedule()" style="font-size:0.68rem">Save</button>
+                    <span id="sched-status" style="font-size:0.7rem;color:var(--dim)"></span>
+                  </div>
+                </div>
               </div>
             </div>
             <!-- MQTT setup note -->
@@ -634,6 +664,6 @@
 
 <div id="toast"></div>
 
-<script src="/static/app.js?v=7"></script>
+<script src="/static/app.js?v=9"></script>
 </body>
 </html>

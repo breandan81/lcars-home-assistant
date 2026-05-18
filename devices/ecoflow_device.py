@@ -258,23 +258,30 @@ class EcoflowController:
         return self._state.get("pd.tempSys", 0) == 1
 
     def get_status(self) -> dict:
-        state    = self._state if self._state else self._fetch_rest_status()
-        heat_env = state.get("pd.heatEnv")
-        temp_c   = round(heat_env / 100, 1) if heat_env is not None else None
+        state = self._state if self._state else self._fetch_rest_status()
+        use_f = self._use_fahrenheit()
+        # pd.envTemp is the room temperature sensor in the device's display unit
+        env_temp = state.get("pd.envTemp")
+        if env_temp is not None:
+            temp_c = round((env_temp - 32) * 5 / 9, 1) if use_f else round(env_temp, 1)
+        else:
+            heat_env = state.get("pd.heatEnv")
+            temp_c = round(heat_env / 100, 1) if heat_env is not None else None
         # pd.setTemp is the authoritative displayed setpoint, in the device's display unit
         set_temp_raw = state.get("pd.setTemp")
-        use_f = self._use_fahrenheit()
         if set_temp_raw is not None:
             set_temp_c = round((set_temp_raw - 32) * 5 / 9) if use_f else set_temp_raw
         else:
             set_temp_c = state.get("pd.setTempCel")
-        mode_map = {0: "cool", 1: "heat", 2: "fan", 3: "auto"}
-        fan_map  = {0: "low",  1: "medium", 2: "high"}
+        mode_map     = {0: "cool", 1: "heat", 2: "fan"}
+        sub_mode_map = {0: "max", 1: "sleep", 2: "eco", 3: "manual"}
+        fan_map      = {0: "low", 1: "medium", 2: "high"}
         return {
             "connected":   self._connected,
             "serial":      self.sn,
             "power":       bool(state.get("pd.powerMode", 0)),
-            "mode":        mode_map.get(state.get("pd.pdSubMode"), "unknown"),
+            "mode":        mode_map.get(state.get("pd.mainMode"), "unknown"),
+            "sub_mode":    sub_mode_map.get(state.get("pd.pdSubMode"), "manual"),
             "fan":         fan_map.get(state.get("pd.fanValue"),   "unknown"),
             "temp_c":      temp_c,
             "temp_unit":   "C",
@@ -301,6 +308,12 @@ class EcoflowController:
         if mode not in mode_map:
             return {"error": f"Unknown mode '{mode}', valid: cool, heat, fan"}
         return self._publish_command("mainMode", {"mainMode": mode_map[mode]})
+
+    def set_sub_mode(self, sub_mode: str) -> dict:
+        sub_map = {"max": 0, "sleep": 1, "eco": 2, "manual": 3}
+        if sub_mode not in sub_map:
+            return {"error": f"Unknown sub_mode '{sub_mode}', valid: max, sleep, eco, manual"}
+        return self._publish_command("subMode", {"subMode": sub_map[sub_mode]})
 
     def set_fan_speed(self, speed: str) -> dict:
         speed_map = {"low": 0, "medium": 1, "high": 2}

@@ -1,7 +1,9 @@
 import asyncio
+import json
 import logging
+from datetime import datetime
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Optional
 
 import yaml
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -42,6 +44,37 @@ arduino   = ArduinoIRController(config.get("arduino_ir") or {})
 roku      = RokuController(config.get("roku") or {})
 samsung   = SamsungTVController(config.get("samsung_tv") or {})
 philips   = PhilipsTVController(config.get("philips_tv") or {})
+
+# Settings -------------------------------------------------------------------
+_SETTINGS_FILE = Path("settings.json")
+_DEFAULT_SETTINGS: dict = {
+    "morning_on_enabled":  False,
+    "morning_on_time":     "07:00",
+    "morning_on_setpoint": 22,
+    "auto_max_enabled":    False,
+    "auto_max_threshold":  6,
+}
+_settings: dict = {}
+
+def _load_settings() -> dict:
+    global _settings
+    if _SETTINGS_FILE.exists():
+        try:
+            with open(_SETTINGS_FILE) as f:
+                _settings = {**_DEFAULT_SETTINGS, **json.load(f)}
+        except Exception:
+            _settings = dict(_DEFAULT_SETTINGS)
+    else:
+        _settings = dict(_DEFAULT_SETTINGS)
+    return _settings
+
+def _save_settings(s: dict):
+    global _settings
+    _settings = s
+    with open(_SETTINGS_FILE, "w") as f:
+        json.dump(s, f, indent=2)
+
+_load_settings()
 
 # App ------------------------------------------------------------------------
 app = FastAPI(title="LCARS Home Control", docs_url="/api/docs")
@@ -185,6 +218,31 @@ async def climate_mode(mode: str):
 @app.post("/api/climate/fan")
 async def climate_fan(speed: str):
     return ecoflow.set_fan_speed(speed)
+
+@app.post("/api/climate/submode")
+async def climate_submode(mode: str):
+    return ecoflow.set_sub_mode(mode)
+
+@app.get("/api/climate/schedule")
+async def get_schedule():
+    return _settings
+
+@app.post("/api/climate/schedule")
+async def set_schedule(
+    morning_on_enabled:  Optional[bool] = None,
+    morning_on_time:     Optional[str]  = None,
+    morning_on_setpoint: Optional[int]  = None,
+    auto_max_enabled:    Optional[bool] = None,
+    auto_max_threshold:  Optional[int]  = None,
+):
+    s = dict(_settings)
+    if morning_on_enabled  is not None: s["morning_on_enabled"]  = morning_on_enabled
+    if morning_on_time     is not None: s["morning_on_time"]     = morning_on_time
+    if morning_on_setpoint is not None: s["morning_on_setpoint"] = morning_on_setpoint
+    if auto_max_enabled    is not None: s["auto_max_enabled"]    = auto_max_enabled
+    if auto_max_threshold  is not None: s["auto_max_threshold"]  = auto_max_threshold
+    _save_settings(s)
+    return s
 
 
 # ── Arduino IR + RF ──────────────────────────────────────────────────────────
@@ -468,9 +526,46 @@ async def shutdown():
         except Exception:
             pass
 
+async def _climate_monitor_loop():
+    last_morning_date = None
+    while True:
+        await asyncio.sleep(30)
+        try:
+            s = _settings
+            now = datetime.now()
+            status = ecoflow.get_status()
+
+            # ── Morning scheduled turn-on (weekdays Mon–Fri only) ─────────────
+            if s.get("morning_on_enabled") and now.weekday() < 5:
+                h, m = map(int, s["morning_on_time"].split(":"))
+                if now.hour == h and now.minute == m and last_morning_date != now.date():
+                    last_morning_date = now.date()
+                    if not status.get("power"):
+                        ecoflow.set_power(True)
+                        ecoflow.set_temperature(s.get("morning_on_setpoint", 22))
+                        logger.info(f"Scheduled morning on: setpoint={s.get('morning_on_setpoint')}°C")
+
+            # ── Auto-MAX: full-power cool when ambient far above setpoint ──────
+            if s.get("auto_max_enabled") and status.get("power") and status.get("connected"):
+                temp_c     = status.get("temp_c")
+                set_temp_c = status.get("set_temp_c")
+                sub_mode   = status.get("sub_mode")
+                mode       = status.get("mode")
+                threshold  = s.get("auto_max_threshold", 6)
+                if temp_c is not None and set_temp_c is not None:
+                    if mode == "cool" and sub_mode != "max" and temp_c > set_temp_c + threshold:
+                        ecoflow.set_sub_mode("max")
+                        logger.info(f"Auto-MAX on: ambient {temp_c}°C > setpoint+{threshold} ({set_temp_c + threshold}°C)")
+                    elif sub_mode == "max" and temp_c <= set_temp_c + threshold:
+                        ecoflow.set_sub_mode("manual")
+                        logger.info(f"Auto-MAX off: ambient {temp_c}°C within threshold")
+        except Exception as e:
+            logger.debug(f"Climate monitor: {e}")
+
 @app.on_event("startup")
 async def startup():
     asyncio.create_task(_poll_loop())
+    asyncio.create_task(_climate_monitor_loop())
 
 
 async def _poll_loop():
