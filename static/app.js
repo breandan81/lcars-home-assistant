@@ -55,6 +55,9 @@ function handlePush(msg) {
   if (msg.type === 'poll_temp') {
     renderTemp(msg);
   }
+  if (msg.type === 'garage_sensor') {
+    renderGarageSensor(msg);
+  }
 }
 
 function setWsDot(ok) {
@@ -872,6 +875,24 @@ async function rokuLaunch(appId, name) {
 // GARAGE
 // ════════════════════════════════════════════════════════════════════════════
 
+function renderGarageSensor(d) {
+  const state   = d.state || 'UNKNOWN';
+  const stateEl = document.getElementById('garage-door-state');
+  const indEl   = document.getElementById('garage-indicator');
+  const distEl  = document.getElementById('garage-door-dist');
+  const updEl   = document.getElementById('garage-door-updated');
+  if (!stateEl) return;
+
+  stateEl.textContent = state;
+  stateEl.style.color = state === 'CLOSED' ? 'var(--green)'
+                      : state === 'OPEN'   ? 'var(--red)'
+                      : 'var(--dim)';
+  if (indEl) setIndicator('garage-indicator',
+      state === 'CLOSED' ? 'on' : state === 'OPEN' ? 'err' : 'warn');
+  if (distEl) distEl.textContent = d.distance_cm != null ? `${d.distance_cm} cm` : '';
+  if (updEl)  updEl.textContent  = d.updated ? `Updated ${d.updated}` : '';
+}
+
 async function garageTrigger() {
   const btn = document.getElementById('garage-btn');
   const status = document.getElementById('garage-status');
@@ -1119,6 +1140,9 @@ function rgbToHsv(r, g, b) {
   if (Array.isArray(groupData)) { state.groups = groupData;  renderGroups(); }
   if (ecoData && !ecoData.error){ state.ecoflow = ecoData;   renderEcoflow(); }
   loadSchedule();
+
+  const garageSensor = await api('GET', '/api/garage/sensor');
+  if (garageSensor && !garageSensor.error) renderGarageSensor(garageSensor);
 
   _setArduinoStatus(pingData?.online === true);
   if (!pingData?.online) toast('Arduino offline — IR/RF unavailable', 'var(--red)');

@@ -467,11 +467,31 @@ async def philips_key(key: str):
 
 # ── Garage ───────────────────────────────────────────────────────────────────
 
+_garage_sensor: dict = {"state": "UNKNOWN", "distance_cm": None, "updated": None}
+
 @app.post("/api/garage/trigger")
 async def garage_trigger():
     result = await arduino.trigger_garage()
     await broadcast({"type": "garage", "triggered": "triggered" in result})
     return result
+
+@app.post("/api/garage/sensor")
+async def garage_sensor(request: Request):
+    global _garage_sensor
+    data = await request.json()
+    prev_state = _garage_sensor.get("state")
+    _garage_sensor = {
+        "state":       data.get("state", "UNKNOWN"),
+        "distance_cm": data.get("distance_cm"),
+        "updated":     datetime.now().isoformat(timespec="seconds"),
+    }
+    if _garage_sensor["state"] != prev_state:
+        await broadcast({"type": "garage_sensor", **_garage_sensor})
+    return {"ok": True}
+
+@app.get("/api/garage/sensor")
+async def garage_sensor_status():
+    return _garage_sensor
 
 
 # ── Scenes ───────────────────────────────────────────────────────────────────
@@ -528,6 +548,7 @@ async def shutdown():
 
 async def _climate_monitor_loop():
     last_morning_date = None
+    pre_max_setpoint: Optional[int] = None  # setpoint saved before MAX overrides it
     while True:
         await asyncio.sleep(30)
         try:
@@ -554,11 +575,18 @@ async def _climate_monitor_loop():
                 threshold  = s.get("auto_max_threshold", 6)
                 if temp_c is not None and set_temp_c is not None:
                     if mode == "cool" and sub_mode != "max" and temp_c > set_temp_c + threshold:
+                        pre_max_setpoint = set_temp_c  # save before MAX forces it to 60°F
                         ecoflow.set_sub_mode("max")
-                        logger.info(f"Auto-MAX on: ambient {temp_c}°C > setpoint+{threshold} ({set_temp_c + threshold}°C)")
-                    elif sub_mode == "max" and temp_c <= set_temp_c + threshold:
-                        ecoflow.set_sub_mode("manual")
-                        logger.info(f"Auto-MAX off: ambient {temp_c}°C within threshold")
+                        logger.info(f"Auto-MAX on: ambient {temp_c}°C > setpoint+{threshold} ({set_temp_c + threshold}°C), saved setpoint {pre_max_setpoint}°C")
+                    elif sub_mode == "max":
+                        ref = pre_max_setpoint if pre_max_setpoint is not None else set_temp_c
+                        if temp_c <= ref + threshold:
+                            ecoflow.set_sub_mode("manual")
+                            ecoflow.set_temperature(ref)  # restore setpoint MAX overwrote
+                            logger.info(f"Auto-MAX off: ambient {temp_c}°C within threshold, restored setpoint {ref}°C")
+                            pre_max_setpoint = None
+                    else:
+                        pre_max_setpoint = None  # user manually exited MAX, clear saved value
         except Exception as e:
             logger.debug(f"Climate monitor: {e}")
 

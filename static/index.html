@@ -60,7 +60,7 @@
       <!-- ═══ READY ROOM ══════════════════════════════════════════════════ -->
       <div class="section active" id="section-ready-room">
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
 
           <!-- Office Plug -->
           <div class="panel">
@@ -576,12 +576,24 @@
       <!-- ═══ GARAGE ═══════════════════════════════════════════════════════ -->
       <div class="section" id="section-garage">
         <div class="panel">
-          <div class="panel-header lilac">Garage Door</div>
-          <div class="panel-body" style="align-items:center;gap:20px">
-            <button class="lbtn lilac" id="garage-btn" onclick="garageTrigger()" style="font-size:1.1rem;padding:14px 36px">
-              ⊡ TRIGGER
-            </button>
-            <div id="garage-status" style="font-size:0.75rem;color:var(--dim)"></div>
+          <div class="panel-header lilac">
+            <span class="indicator" id="garage-indicator"></span>
+            Garage Door
+          </div>
+          <div class="panel-body">
+            <!-- Sensor state -->
+            <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px">
+              <div id="garage-door-state" style="font-size:2rem;font-family:'Antonio',sans-serif;font-weight:700;letter-spacing:0.1em;color:var(--lilac)">--</div>
+              <div>
+                <div id="garage-door-dist" style="font-size:0.75rem;color:var(--dim)"></div>
+                <div id="garage-door-updated" style="font-size:0.65rem;color:var(--dim)"></div>
+              </div>
+            </div>
+            <!-- Trigger -->
+            <div style="display:flex;align-items:center;gap:16px">
+              <button class="lbtn lilac" id="garage-btn" onclick="garageTrigger()" style="font-size:1rem;padding:12px 28px">⊡ TRIGGER</button>
+              <div id="garage-status" style="font-size:0.75rem;color:var(--dim)"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -664,6 +676,6 @@
 
 <div id="toast"></div>
 
-<script src="/static/app.js?v=9"></script>
+<script src="/static/app.js?v=11"></script>
 </body>
 </html>
