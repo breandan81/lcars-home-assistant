@@ -280,6 +280,10 @@ async def ir_ping():
     ok = await arduino.ping()
     return {"online": ok, "host": arduino.host, "mode": arduino.mode}
 
+@app.get("/api/ir/blasters")
+async def ir_blasters():
+    return await arduino.ping_all()
+
 @app.post("/api/ir/save-code")
 async def ir_save_code(device_id: str, command_name: str, code: str):
     dev = arduino.devices_config.get(device_id)
@@ -538,13 +542,11 @@ async def index():
 
 @app.on_event("shutdown")
 async def shutdown():
-    # Close serial port cleanly so DTR doesn't toggle and reset the Arduino.
-    transport = getattr(arduino, '_transport', None)
-    if transport and hasattr(transport, '_ser') and transport._ser:
-        try:
-            transport._ser.close()
-        except Exception:
-            pass
+    # Close all blaster transports cleanly so DTR doesn't toggle and reset Unos.
+    try:
+        arduino.close_all()
+    except Exception:
+        pass
 
 async def _climate_monitor_loop():
     last_morning_date = None
@@ -560,11 +562,13 @@ async def _climate_monitor_loop():
             if s.get("morning_on_enabled") and now.weekday() < 5:
                 h, m = map(int, s["morning_on_time"].split(":"))
                 if now.hour == h and now.minute == m and last_morning_date != now.date():
-                    last_morning_date = now.date()
-                    if not status.get("power"):
-                        ecoflow.set_power(True)
+                    if status.get("connected"):
+                        last_morning_date = now.date()
+                        if not status.get("power"):
+                            ecoflow.set_power(True)
                         ecoflow.set_temperature(s.get("morning_on_setpoint", 22))
-                        logger.info(f"Scheduled morning on: setpoint={s.get('morning_on_setpoint')}°C")
+                        logger.info(f"Scheduled morning on: setpoint={s.get('morning_on_setpoint')}°C was_on={status.get('power')}")
+                    # else: MQTT not ready yet, loop retries in 30s
 
             # ── Auto-MAX: full-power cool when ambient far above setpoint ──────
             if s.get("auto_max_enabled") and status.get("power") and status.get("connected"):

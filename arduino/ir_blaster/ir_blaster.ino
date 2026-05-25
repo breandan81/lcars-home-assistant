@@ -27,20 +27,22 @@
 #include <Arduino.h>
 #if defined(ESP32)
 #  include <WiFi.h>
+#  include <ESPmDNS.h>
 #elif defined(ESP8266)
 #  include <ESP8266WiFi.h>
+#  include <ESP8266mDNS.h>
 #endif
+#include <ArduinoJson.h>          // must precede ESPAsyncWebServer.h so ASYNC_JSON_SUPPORT enables
 #include <ESPAsyncWebServer.h>
+#include <AsyncJson.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
-#include <ArduinoJson.h>
 #include <HunterFan.h>
+#include "wifi_credentials.h"  // gitignored; copy wifi_credentials.example.h
 
 // ─── Config ────────────────────────────────────────────────────────────────
-const char* WIFI_SSID     = "YOUR_SSID";
-const char* WIFI_PASSWORD = "YOUR_PASSWORD";
 
 const uint16_t IR_SEND_PIN = 4;   // D2
 const uint16_t IR_RECV_PIN = 14;  // D5
@@ -60,6 +62,14 @@ uint32_t learnedCode = 0;
 bool     learnDone   = false;
 String   learnProtocol;
 
+// Deferred IR send queue: HTTP handler enqueues, main loop transmits.
+// Async callbacks run on a small stack & timing-sensitive IRsend calls
+// can crash the ESP if invoked there directly.
+volatile bool     pendingIR = false;
+String            pendingProto;
+uint32_t          pendingCode = 0;
+uint16_t          pendingBits = 32;
+
 // ─── Setup ─────────────────────────────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
@@ -68,12 +78,22 @@ void setup() {
   pinMode(GARAGE_PIN, INPUT); // hi-Z until triggered
 
   // Connect WiFi
-  Serial.printf("Connecting to %s", WIFI_SSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.hostname(DEVICE_NAME);
+  Serial.printf("Connecting to %s as %s", WIFI_SSID, DEVICE_NAME);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500); Serial.print(".");
   }
   Serial.printf("\nIP: %s\n", WiFi.localIP().toString().c_str());
+
+  // mDNS — advertise as <DEVICE_NAME>.local so LCARS can find us by name
+  if (MDNS.begin(DEVICE_NAME)) {
+    MDNS.addService("http", "tcp", 80);
+    Serial.printf("mDNS: http://%s.local\n", DEVICE_NAME);
+  } else {
+    Serial.println("mDNS start failed");
+  }
 
   // ── Routes ────────────────────────────────────────────────────────────
   server.on("/ping", HTTP_GET, [](AsyncWebServerRequest* req) {
@@ -81,25 +101,23 @@ void setup() {
     req->send(200, "application/json", json);
   });
 
-  // POST /ir/send  body: { "protocol": "NEC", "code": "0x807F817E", "bits": 32 }
-  server.addHandler(new AsyncCallbackJsonWebHandler("/ir/send",
-    [](AsyncWebServerRequest* req, JsonVariant& body) {
-      const char* proto = body["protocol"] | "NEC";
-      const char* codeStr = body["code"] | "0x0";
-      uint16_t    bits    = body["bits"] | 32;
+  // POST /ir/send?protocol=NEC&code=0x807F817E&bits=32
+  // Defers the actual IR transmit to the main loop — calling irsend.sendNEC()
+  // directly from the async callback crashed the ESP (Exception 9, excvaddr=3).
+  server.on("/ir/send", HTTP_POST, [](AsyncWebServerRequest* req) {
+    String proto   = req->hasParam("protocol") ? req->getParam("protocol")->value() : "NEC";
+    String codeStr = req->hasParam("code")     ? req->getParam("code")->value()     : "0x0";
+    uint16_t bits  = req->hasParam("bits")     ? (uint16_t)req->getParam("bits")->value().toInt() : 32;
 
-      uint32_t code = (uint32_t)strtoul(codeStr, nullptr, 16);
-      bool ok = sendCode(proto, code, bits);
+    pendingProto = proto;
+    pendingCode  = (uint32_t)strtoul(codeStr.c_str(), nullptr, 16);
+    pendingBits  = bits;
+    pendingIR    = true;
 
-      StaticJsonDocument<128> resp;
-      resp["sent"]     = ok;
-      resp["protocol"] = proto;
-      resp["code"]     = codeStr;
-      resp["bits"]     = bits;
-      String out; serializeJson(resp, out);
-      req->send(200, "application/json", out);
-    }
-  ));
+    String resp = String("{\"queued\":true,\"protocol\":\"") + proto +
+                  "\",\"code\":\"" + codeStr + "\",\"bits\":" + bits + "}";
+    req->send(200, "application/json", resp);
+  });
 
   // GET /ir/learn — waits up to 10s for a code
   server.on("/ir/learn", HTTP_GET, [](AsyncWebServerRequest* req) {
@@ -148,15 +166,13 @@ void setup() {
     req->send(200, "application/json", "{\"triggered\":true}");
   });
 
-  // POST /fan/send  { "hex": "A6FF346CBB18067F80", "bits": 66 }
-  server.addHandler(new AsyncCallbackJsonWebHandler("/fan/send",
-    [](AsyncWebServerRequest* req, JsonVariant& body) {
-      const char* hex = body["hex"] | "";
-      uint8_t bits    = body["bits"] | 66;
-      fan.sendHex(hex, bits);
-      req->send(200, "application/json", "{\"sent\":true}");
-    }
-  ));
+  // POST /fan/send?hex=A6FF...&bits=66
+  server.on("/fan/send", HTTP_POST, [](AsyncWebServerRequest* req) {
+    String hex = req->hasParam("hex") ? req->getParam("hex")->value() : "";
+    uint8_t bits = req->hasParam("bits") ? (uint8_t)req->getParam("bits")->value().toInt() : 66;
+    fan.sendHex(hex.c_str(), bits);
+    req->send(200, "application/json", "{\"sent\":true}");
+  });
 
   // GET /fan/learn?timeout=12000
   server.on("/fan/learn", HTTP_GET, [](AsyncWebServerRequest* req) {
@@ -185,14 +201,24 @@ void setup() {
 
 // ─── Loop ──────────────────────────────────────────────────────────────────
 void loop() {
-  // Nothing needed — AsyncWebServer handles everything in callbacks.
-  // Watchdog and WiFi reconnect:
+#if defined(ESP8266)
+  MDNS.update();   // ESP8266 mDNS needs periodic servicing; ESP32 doesn't
+#endif
+
+  // Drain deferred IR send queue (set by HTTP callbacks).
+  if (pendingIR) {
+    pendingIR = false;
+    sendCode(pendingProto.c_str(), pendingCode, pendingBits);
+    Serial.printf("IR sent: %s 0x%08X (%d bits)\n",
+                  pendingProto.c_str(), pendingCode, pendingBits);
+  }
+
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi lost, reconnecting…");
     WiFi.reconnect();
     delay(5000);
   }
-  delay(100);
+  delay(10);
 }
 
 // ─── sendCode: dispatch to IRsend by protocol name ─────────────────────────

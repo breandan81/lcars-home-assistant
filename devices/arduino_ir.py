@@ -1,13 +1,29 @@
 """
-arduino_ir.py — IR and RF control via Arduino Uno (USB serial) or ESP32 (WiFi HTTP).
+arduino_ir.py — IR/RF control across one or more blasters (USB Uno or WiFi ESP).
 
-Config mode:
-  mode: serial  → Uno/clone over USB, sketch: ir_blaster_uno.ino
-  mode: wifi    → ESP32/ESP8266 over WiFi, sketch: ir_blaster.ino
+Multi-blaster config (preferred):
+  arduino_ir:
+    blasters:
+      living_room: { mode: serial, serial_port: /dev/ttyUSB0, baud_rate: 9600 }
+      bedroom:     { mode: wifi,   host: 192.168.68.72 }
+    default_blaster: living_room   # optional; falls back to first
+    garage_blaster:  living_room   # which blaster owns /garage/trigger
+    temp_blaster:    living_room   # which blaster owns the DHT sensor
+    devices:
+      projector:  { name: ..., blaster: living_room, protocol: NEC, commands: {...} }
+      bedroom_tv: { name: ..., blaster: bedroom,     protocol: NEC, commands: {...} }
+
+Legacy single-blaster config (still supported — synthesizes blaster "default"):
+  arduino_ir:
+    mode: serial
+    serial_port: /dev/ttyUSB0
+    baud_rate: 9600
+    devices: { ... }      # devices without a `blaster:` use the default
 
 Device type in config:
-  type: ir  (default) → uses SEND/LEARN serial commands
-  type: rf            → uses RFSEND/RFLEARN serial commands
+  type: ir         (default) → SEND / LEARN
+  type: rf                   → RFSEND / RFLEARN
+  type: hunter_fan           → FANSEND / FANLEARN (66-bit RF)
 """
 
 import asyncio
@@ -168,10 +184,14 @@ class _HttpTransport:
     def __init__(self, host: str, port: int = 80):
         self.base = f"http://{host}:{port}"
 
-    def _post(self, path: str, json: dict) -> Tuple[bool, str]:
+    def _post(self, path: str, params: dict) -> Tuple[bool, str]:
+        # Note: ESP sketch consumes query params, not JSON bodies — the
+        # AsyncCallbackJsonWebHandler in the current ESPAsyncWebServer fork
+        # crashes the ESP8266 with Exception 9 on body parse. Query params
+        # work fine for the small payloads we send.
         try:
             import requests
-            r = requests.post(f"{self.base}{path}", json=json, timeout=5)
+            r = requests.post(f"{self.base}{path}", params=params, timeout=5)
             r.raise_for_status()
             return True, "OK"
         except Exception as e:
@@ -234,19 +254,68 @@ class ArduinoIRController:
         self.config = config
         self.devices_config: Dict[str, Any] = config.get("devices") or {}
 
-        mode = config.get("mode", "wifi").lower()
-        if mode == "serial":
-            port = config.get("serial_port", "/dev/ttyACM0")
-            baud = int(config.get("baud_rate", 9600))
-            self._transport = _SerialTransport(port, baud)
-            self._mode = "serial"
-            logger.info(f"Arduino: serial mode on {port}")
-        else:
-            host = config.get("host", "")
-            port = int(config.get("port", 80))
-            self._transport = _HttpTransport(host, port) if host else None
-            self._mode = "wifi"
-            logger.info(f"Arduino: wifi mode → {host}:{port}")
+        blasters_cfg = config.get("blasters") or {}
+        if not blasters_cfg:
+            # Legacy flat config — synthesize a single blaster called "default".
+            mode = config.get("mode", "wifi").lower()
+            if mode == "serial" and config.get("serial_port"):
+                blasters_cfg = {"default": {
+                    "mode": "serial",
+                    "serial_port": config["serial_port"],
+                    "baud_rate":   config.get("baud_rate", 9600),
+                }}
+            elif config.get("host"):
+                blasters_cfg = {"default": {
+                    "mode": "wifi",
+                    "host": config["host"],
+                    "port": config.get("port", 80),
+                }}
+
+        self._transports: Dict[str, Any] = {}
+        for name, bcfg in blasters_cfg.items():
+            mode = (bcfg.get("mode") or "wifi").lower()
+            try:
+                if mode == "serial":
+                    port = bcfg.get("serial_port", "/dev/ttyACM0")
+                    baud = int(bcfg.get("baud_rate", 9600))
+                    self._transports[name] = _SerialTransport(port, baud)
+                    logger.info(f"Blaster '{name}': serial on {port} @ {baud}")
+                elif bcfg.get("host"):
+                    host = bcfg["host"]
+                    port = int(bcfg.get("port", 80))
+                    self._transports[name] = _HttpTransport(host, port)
+                    logger.info(f"Blaster '{name}': wifi → {host}:{port}")
+                else:
+                    logger.warning(f"Blaster '{name}': skipped (no host/serial_port)")
+            except Exception as e:
+                logger.error(f"Blaster '{name}' init failed: {e}")
+
+        self._default_blaster: Optional[str] = (
+            config.get("default_blaster") or next(iter(self._transports), None)
+        )
+        self._garage_blaster:   Optional[str] = config.get("garage_blaster")   or self._default_blaster
+        self._temp_blaster:     Optional[str] = config.get("temp_blaster")     or self._default_blaster
+        # All learn operations route to the receiver-equipped blaster, regardless
+        # of which blaster will eventually transmit the learned code.
+        self._receiver_blaster: Optional[str] = config.get("receiver_blaster") or self._default_blaster
+
+    # ── Routing ───────────────────────────────────────────────────────────────
+
+    def _transport_for(self, device_id: str):
+        dev = self.devices_config.get(device_id) or {}
+        name = dev.get("blaster") or self._default_blaster
+        return self._transports.get(name) if name else None
+
+    def _blaster_name_for(self, device_id: str) -> Optional[str]:
+        dev = self.devices_config.get(device_id) or {}
+        return dev.get("blaster") or self._default_blaster
+
+    def close_all(self):
+        for t in self._transports.values():
+            close = getattr(t, "close", None)
+            if callable(close):
+                try: close()
+                except Exception: pass
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -258,6 +327,7 @@ class ArduinoIRController:
                 "type": info.get("type", "ir"),
                 "protocol": info.get("protocol", "NEC" if info.get("type", "ir") == "ir" else 1),
                 "bit_length": info.get("bit_length", 24),
+                "blaster": info.get("blaster") or self._default_blaster,
                 "commands": list(info.get("commands", {}).keys()),
             }
             for dev_id, info in self.devices_config.items()
@@ -276,51 +346,51 @@ class ArduinoIRController:
         }
 
     async def send_command(self, device_id: str, command: str) -> dict:
-        if not self._transport:
-            return {"error": "Arduino not configured"}
         dev = self.devices_config.get(device_id)
         if not dev:
             return {"error": f"Device '{device_id}' not in config"}
+        transport = self._transport_for(device_id)
+        if not transport:
+            return {"error": f"No blaster '{self._blaster_name_for(device_id)}' for '{device_id}'"}
         code = dev.get("commands", {}).get(command)
         if not code:
             return {"error": f"Command '{command}' not found for '{device_id}'"}
 
         dev_type = dev.get("type", "ir")
+        loop = asyncio.get_event_loop()
         if dev_type == "hunter_fan":
             bits = dev.get("bit_length", 66)
-            ok, msg = await asyncio.get_event_loop().run_in_executor(
-                None, self._transport.send_fan, code, bits
-            )
+            ok, msg = await loop.run_in_executor(None, transport.send_fan, code, bits)
         elif dev_type == "rf":
             bits     = dev.get("bit_length", 24)
             protocol = dev.get("protocol", 1)
-            ok, msg  = await asyncio.get_event_loop().run_in_executor(
-                None, self._transport.send_rf, code, bits, protocol
-            )
+            ok, msg  = await loop.run_in_executor(None, transport.send_rf, code, bits, protocol)
         else:
             protocol = dev.get("protocol", "NEC")
-            ok, msg  = await asyncio.get_event_loop().run_in_executor(
-                None, self._transport.send_ir, protocol, code, 32
-            )
+            ok, msg  = await loop.run_in_executor(None, transport.send_ir, protocol, code, 32)
 
+        blaster = self._blaster_name_for(device_id)
         if ok:
-            return {"sent": True, "device": device_id, "command": command, "code": code}
-        return {"error": msg, "device": device_id, "command": command}
+            return {"sent": True, "device": device_id, "command": command, "code": code, "blaster": blaster}
+        return {"error": msg, "device": device_id, "command": command, "blaster": blaster}
 
     async def learn_ir_command(self, device_id: str, command_name: str) -> dict:
-        if not self._transport:
-            return {"error": "Arduino not configured"}
-        result = await asyncio.get_event_loop().run_in_executor(None, self._transport.learn_ir)
+        transport = self._transports.get(self._receiver_blaster) if self._receiver_blaster else None
+        if not transport:
+            return {"error": f"No receiver_blaster configured (looked for '{self._receiver_blaster}')"}
+        result = await asyncio.get_event_loop().run_in_executor(None, transport.learn_ir)
         return self._store_learned(result, device_id, command_name, "ir")
 
     async def learn_rf_command(self, device_id: str, command_name: str) -> dict:
-        if not self._transport:
-            return {"error": "Arduino not configured"}
+        transport = self._transports.get(self._receiver_blaster) if self._receiver_blaster else None
+        if not transport:
+            return {"error": f"No receiver_blaster configured (looked for '{self._receiver_blaster}')"}
         dev = self.devices_config.get(device_id, {})
+        loop = asyncio.get_event_loop()
         if dev.get("type") == "hunter_fan":
-            result = await asyncio.get_event_loop().run_in_executor(None, self._transport.learn_fan)
+            result = await loop.run_in_executor(None, transport.learn_fan)
             return self._store_learned(result, device_id, command_name, "hunter_fan")
-        result = await asyncio.get_event_loop().run_in_executor(None, self._transport.learn_rf)
+        result = await loop.run_in_executor(None, transport.learn_rf)
         return self._store_learned(result, device_id, command_name, "rf")
 
     def _store_learned(self, result: Optional[dict], device_id: str, command_name: str, dev_type: str) -> dict:
@@ -333,29 +403,58 @@ class ArduinoIRController:
         return {**result, "device": device_id, "command": command_name}
 
     async def trigger_garage(self) -> dict:
-        if not self._transport:
-            return {"error": "Arduino not configured"}
-        ok = await asyncio.get_event_loop().run_in_executor(None, self._transport.garage_trigger)
-        return {"triggered": True} if ok else {"error": "Arduino did not confirm GDOOR"}
+        t = self._transports.get(self._garage_blaster) if self._garage_blaster else None
+        if not t:
+            return {"error": f"No garage_blaster configured (looked for '{self._garage_blaster}')"}
+        ok = await asyncio.get_event_loop().run_in_executor(None, t.garage_trigger)
+        return {"triggered": True, "blaster": self._garage_blaster} if ok \
+            else {"error": "Blaster did not confirm GDOOR", "blaster": self._garage_blaster}
 
     async def read_temp(self) -> Optional[dict]:
-        if not self._transport:
+        t = self._transports.get(self._temp_blaster) if self._temp_blaster else None
+        if not t:
             return None
-        return await asyncio.get_event_loop().run_in_executor(None, self._transport.read_temp)
+        return await asyncio.get_event_loop().run_in_executor(None, t.read_temp)
 
     async def ping(self) -> bool:
-        if not self._transport:
+        """Returns True if the default blaster is online (backwards-compat)."""
+        t = self._transports.get(self._default_blaster) if self._default_blaster else None
+        if not t:
             return False
-        return await asyncio.get_event_loop().run_in_executor(None, self._transport.ping)
+        return await asyncio.get_event_loop().run_in_executor(None, t.ping)
+
+    async def ping_all(self) -> Dict[str, dict]:
+        """Ping every blaster; returns {name: {online, host, mode}}."""
+        loop = asyncio.get_event_loop()
+        out: Dict[str, dict] = {}
+        for name, t in self._transports.items():
+            online = await loop.run_in_executor(None, t.ping)
+            if isinstance(t, _SerialTransport):
+                host, mode = t.port, "serial"
+            else:
+                host, mode = t.base, "wifi"
+            out[name] = {"online": online, "host": host, "mode": mode}
+        return out
+
+    # ── Legacy single-blaster compatibility ───────────────────────────────────
+    # Existing callers read these to display "the" arduino's connection info.
+    # We surface the default blaster's details so old endpoints keep working.
 
     @property
     def mode(self) -> str:
-        return self._mode
+        t = self._transports.get(self._default_blaster) if self._default_blaster else None
+        if isinstance(t, _SerialTransport): return "serial"
+        if isinstance(t, _HttpTransport):   return "wifi"
+        return ""
 
     @property
     def host(self) -> str:
-        if self._mode == "serial" and self._transport:
-            return self._transport.port
-        if self._mode == "wifi" and self._transport:
-            return self._transport.base
+        t = self._transports.get(self._default_blaster) if self._default_blaster else None
+        if isinstance(t, _SerialTransport): return t.port
+        if isinstance(t, _HttpTransport):   return t.base
         return ""
+
+    @property
+    def _transport(self):
+        """Legacy alias: returns the default blaster's transport (used by shutdown handler)."""
+        return self._transports.get(self._default_blaster) if self._default_blaster else None

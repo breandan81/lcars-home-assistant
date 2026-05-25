@@ -279,7 +279,7 @@ class EcoflowController:
         return {
             "connected":   self._connected,
             "serial":      self.sn,
-            "power":       bool(state.get("pd.powerMode", 0)),
+            "power":       state.get("pd.powerMode") == 1,
             "mode":        mode_map.get(state.get("pd.mainMode"), "unknown"),
             "sub_mode":    sub_mode_map.get(state.get("pd.pdSubMode"), "manual"),
             "fan":         fan_map.get(state.get("pd.fanValue"),   "unknown"),

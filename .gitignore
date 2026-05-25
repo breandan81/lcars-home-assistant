@@ -11,3 +11,4 @@ philips_key.pem
 dist/
 build/
 .DS_Store
+arduino/**/wifi_credentials.h
