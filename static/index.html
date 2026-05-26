@@ -44,6 +44,7 @@
         <button class="nav-btn purple"        data-section="audio">♪ Audio</button>
         <button class="nav-btn lt-blue"       data-section="roku">▶ Roku</button>
         <button class="nav-btn tan"           data-section="samsung">▣ Samsung</button>
+        <button class="nav-btn pink"          data-section="bedroom">⏻ Bedroom</button>
         <button class="nav-btn lilac"        data-section="garage">⊡ Garage</button>
         <button class="nav-btn gold"          data-section="scenes">★ Scenes</button>
         <button class="nav-btn green"         data-section="learn">◎ Learn</button>
@@ -573,6 +574,45 @@
         </div>
       </div>
 
+      <!-- ═══ BEDROOM TV (IR via bedroom ESP8266 blaster) ════════════════ -->
+      <div class="section" id="section-bedroom">
+        <div class="panel">
+          <div class="panel-header pink">
+            Bedroom TV
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-row">
+              <button class="lbtn green power-btn" onclick="irSend('bedroom_tv','power')" title="Power">⏻</button>
+              <button class="lbtn dim"   onclick="irSend('bedroom_tv','mute')">Mute</button>
+              <button class="lbtn dim"   onclick="irSend('bedroom_tv','input')">Input</button>
+              <button class="lbtn dim"   onclick="irSend('bedroom_tv','menu')">Menu</button>
+            </div>
+            <div class="dpad" style="margin:12px 0">
+              <button class="lbtn blue dpad-up"       onclick="irSend('bedroom_tv','up')">▲</button>
+              <button class="lbtn blue dpad-left"     onclick="irSend('bedroom_tv','left')">◀</button>
+              <button class="lbtn orange dpad-center" onclick="irSend('bedroom_tv','ok')">OK</button>
+              <button class="lbtn blue dpad-right"    onclick="irSend('bedroom_tv','right')">▶</button>
+              <button class="lbtn blue dpad-down"     onclick="irSend('bedroom_tv','down')">▼</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Volume</span>
+              <button class="lbtn orange" onclick="irSend('bedroom_tv','volume_up')">＋</button>
+              <button class="lbtn orange" onclick="irSend('bedroom_tv','volume_down')">－</button>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Channel</span>
+              <button class="lbtn blue" onclick="irSend('bedroom_tv','channel_up')">▲</button>
+              <button class="lbtn blue" onclick="irSend('bedroom_tv','channel_down')">▼</button>
+            </div>
+            <div class="ctrl-row" style="margin-top:8px">
+              <button class="lbtn dim" onclick="irSend('bedroom_tv','back')">← Back</button>
+              <button class="lbtn dim" onclick="irSend('bedroom_tv','home')">⌂ Home</button>
+              <button class="lbtn dim" onclick="irSend('bedroom_tv','exit')">Exit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ GARAGE ═══════════════════════════════════════════════════════ -->
       <div class="section" id="section-garage">
         <div class="panel">
@@ -676,6 +716,6 @@
 
 <div id="toast"></div>
 
-<script src="/static/app.js?v=11"></script>
+<script src="/static/app.js?v=12"></script>
 </body>
 </html>

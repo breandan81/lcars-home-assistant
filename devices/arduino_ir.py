@@ -367,7 +367,8 @@ class ArduinoIRController:
             ok, msg  = await loop.run_in_executor(None, transport.send_rf, code, bits, protocol)
         else:
             protocol = dev.get("protocol", "NEC")
-            ok, msg  = await loop.run_in_executor(None, transport.send_ir, protocol, code, 32)
+            bits     = dev.get("bit_length", 32)
+            ok, msg  = await loop.run_in_executor(None, transport.send_ir, protocol, code, bits)
 
         blaster = self._blaster_name_for(device_id)
         if ok:

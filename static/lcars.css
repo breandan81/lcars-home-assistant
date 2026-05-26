@@ -12,6 +12,7 @@
   --gold:    #ffaa00;  /* gold */
   --lilac:   #cc55ff;  /* lilac */
   --magenta: #cc5599;  /* magenta */
+  --pink:    #ff77bb;  /* pink */
   --bg:      #000000;
   --panel:   #0a0a1a;
   --text:    #ff9900;
@@ -205,6 +206,7 @@ html, body {
 .nav-btn.tan     { background: var(--tan);  color: #000; }
 .nav-btn.lilac   { background: var(--lilac);   color: #000; }
 .nav-btn.magenta { background: var(--magenta); color: #000; }
+.nav-btn.pink    { background: var(--pink);    color: #000; }
 
 
 .lcars-elbow-bl {
@@ -321,6 +323,7 @@ html, body {
 .panel-header.gold    { background: var(--gold); color: #000; }
 .panel-header.tan     { background: var(--tan);  color: var(--bg); }
 .panel-header.lilac   { background: var(--lilac); color: var(--bg); }
+.panel-header.pink    { background: var(--pink);  color: var(--bg); }
 
 .panel-header .indicator {
   width: 10px;
@@ -409,6 +412,7 @@ html, body {
 .lbtn.gold    { background: var(--gold); color: #000; }
 .lbtn.tan     { background: var(--tan);  color: #000; }
 .lbtn.lilac   { background: var(--lilac); color: #000; }
+.lbtn.pink    { background: var(--pink);  color: #000; }
 .lbtn.dim     { background: #333; color: #999; }
 .lbtn.active  { outline: 2px solid #fff8; }
 
