@@ -210,16 +210,23 @@ class EcoflowController:
             logger.info("EcoFlow: no app credentials, REST-only mode")
             threading.Thread(target=self._rest_poll_loop, daemon=True).start()
             return
-        try:
-            login_data = self._app_login()
-            token   = login_data["token"]
-            user_id = str(login_data["user"]["userId"])
-            logger.info(f"EcoFlow login OK userId={user_id}")
-            creds = self._fetch_app_mqtt_creds(token, user_id)
-            self._start_mqtt(creds, user_id)
-        except Exception as e:
-            logger.error(f"EcoFlow init failed: {e}")
+
         threading.Thread(target=self._rest_poll_loop, daemon=True).start()
+
+        backoff = 5
+        while True:
+            try:
+                login_data = self._app_login()
+                token   = login_data["token"]
+                user_id = str(login_data["user"]["userId"])
+                logger.info(f"EcoFlow login OK userId={user_id}")
+                creds = self._fetch_app_mqtt_creds(token, user_id)
+                self._start_mqtt(creds, user_id)
+                return
+            except Exception as e:
+                logger.warning(f"EcoFlow MQTT init failed, retry in {backoff}s: {e}")
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 300)
 
     def _rest_poll_loop(self):
         """Refresh configuration fields from REST every 60s (MQTT only pushes sensor deltas)."""
