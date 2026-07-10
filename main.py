@@ -510,10 +510,19 @@ async def scene_movie():
         except Exception as e:
             return {"error": str(e)}
 
-    # Step 1: fire simultaneously — Kasa off, projector on
+    async def _projector_on_repeated():
+        # IR to the projector is flaky; send a few times with a short gap.
+        results = []
+        for i in range(3):
+            if i > 0:
+                await asyncio.sleep(0.25)
+            results.append(await arduino.send_command("projector", "power_on"))
+        return results
+
+    # Step 1: fire simultaneously — Kasa off, projector on (retried)
     r1, r2 = await asyncio.gather(
         _kasa_off(),
-        arduino.send_command("projector", "power_on"),
+        _projector_on_repeated(),
     )
     steps["office_plug_off"] = r1
     steps["projector_on"]    = r2

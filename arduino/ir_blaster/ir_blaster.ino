@@ -205,6 +205,25 @@ void loop() {
   MDNS.update();   // ESP8266 mDNS needs periodic servicing; ESP32 doesn't
 #endif
 
+  // ESP8266 mDNS responder does not survive a WiFi drop — advertisements
+  // go silent until MDNS.begin() runs again. Track connectivity edges and
+  // re-init mDNS on reconnect.
+  static bool wifiUp = true;
+  const bool nowUp = (WiFi.status() == WL_CONNECTED);
+  if (!nowUp && wifiUp) {
+    Serial.println("WiFi lost, reconnecting…");
+    MDNS.end();
+    WiFi.reconnect();
+    wifiUp = false;
+  } else if (nowUp && !wifiUp) {
+    Serial.printf("WiFi back: %s\n", WiFi.localIP().toString().c_str());
+    if (MDNS.begin(DEVICE_NAME)) {
+      MDNS.addService("http", "tcp", 80);
+      Serial.printf("mDNS re-announced: http://%s.local\n", DEVICE_NAME);
+    }
+    wifiUp = true;
+  }
+
   // Drain deferred IR send queue (set by HTTP callbacks).
   if (pendingIR) {
     pendingIR = false;
@@ -213,11 +232,6 @@ void loop() {
                   pendingProto.c_str(), pendingCode, pendingBits);
   }
 
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi lost, reconnecting…");
-    WiFi.reconnect();
-    delay(5000);
-  }
   delay(10);
 }
 
