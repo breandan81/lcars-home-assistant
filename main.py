@@ -527,14 +527,40 @@ async def scene_movie():
     steps["office_plug_off"] = r1
     steps["projector_on"]    = r2
 
-    # Step 2: soundbar on (slight delay so projector warm-up starts first)
+    # Step 2: wake the soundbar (slight delay so projector warm-up starts first).
+    # NOT "power": that is a toggle, so running the scene while the soundbar was
+    # already on turned it OFF, and then the optical switch below had nothing to
+    # act on. Any button wakes it from standby, and volume_up is the one that is
+    # harmless to send to an already-awake soundbar -- the volume_down at the end
+    # cancels it out.
     await asyncio.sleep(1.5)
-    steps["soundbar_on"] = await arduino.send_command("soundbar", "power")
+    steps["soundbar_wake"] = await arduino.send_command("soundbar", "volume_up")
 
-    # Step 3: soundbar optical — wait for soundbar to finish booting
-    await asyncio.sleep(4)
-    steps["soundbar_optical"] = await arduino.send_command("soundbar", "optical")
+    # Step 3: soundbar optical. One shot after a fixed 4s wait was the bug --
+    # the soundbar ignores IR until it has finished booting, and 4s was a guess.
+    # Pressing optical from the UI a moment later always worked, which is what
+    # ruled out the code, the blaster and the transport and left timing.
+    #
+    # Retrying is safe here in a way it would not be for a toggle: optical is a
+    # discrete input selection, so a second press is a no-op.
+    steps["soundbar_optical"] = []
+    for attempt in range(4):
+        await asyncio.sleep(4 if attempt == 0 else 3)
+        steps["soundbar_optical"].append(
+            await arduino.send_command("soundbar", "optical"))
 
+    # Undo the wake press. Sent last, once the soundbar is definitely awake and
+    # listening, so it cannot be swallowed the way a press during boot would be.
+    # If the soundbar was ALREADY awake this is exactly net zero. If it was
+    # asleep and the wake press only woke it without also stepping the volume,
+    # this leaves it one step down -- which is the safe direction to be wrong in,
+    # and beats letting the level ratchet up every time the scene runs.
+    steps["soundbar_volume_restore"] = await arduino.send_command(
+        "soundbar", "volume_down")
+
+    # The caller only sees the HTTP status, and this returns 200 even when a
+    # step errored -- so log the results or a failed IR send leaves no trace.
+    logger.info("movie scene steps: %s", steps)
     return {"scene": "movie", "steps": steps}
 
 
